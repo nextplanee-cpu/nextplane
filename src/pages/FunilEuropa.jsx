@@ -95,13 +95,9 @@ export default function FunilEuropa() {
   }
 
   const buildWALink = () => {
-    const msg = encodeURIComponent(
-      `Olá! Vim da campanha Europa e quero saber mais sobre minha viagem.\n\n` +
-      `📅 Prazo: ${labels.prazo}\n` +
-      `👤 Perfil: ${labels.perfil}\n` +
-      `🌍 Destino: ${labels.destino}\n` +
-      `💰 Investimento: ${labels.investimento}`
-    )
+    const hora = new Date().getHours()
+    const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
+    const msg = encodeURIComponent(`${saudacao}! Tenho interesse no serviço de viagens da Next Plane.`)
     return `https://wa.me/${WA_ESPECIALISTA}?text=${msg}`
   }
 
