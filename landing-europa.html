@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Descubra sua viagem dos sonhos · Next Plane</title>
+  <meta name="description" content="Campanha Europa — descubra sua viagem dos sonhos com a Next Plane." />
+  <meta name="theme-color" content="#F97316" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Poppins:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── RESET ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --base:    #0E0A06;
+      --base2:   #13100A;
+      --brand:   #F97316;
+      --brand2:  #D97020;
+      --brand3:  #F97316;
+      --white:   #FFFFFF;
+      --muted:   rgba(255,255,255,0.45);
+      --muted2:  rgba(255,255,255,0.25);
+      --border:  rgba(245,151,31,0.15);
+      --border2: rgba(255,255,255,0.06);
+      --card:    rgba(255,255,255,0.03);
+      --radius:  14px;
+      --radius2: 20px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--base);
+      color: var(--white);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    ::selection { background: rgba(245,151,31,0.25); color: #fff; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: var(--base); }
+    ::-webkit-scrollbar-thumb { background: var(--brand); border-radius: 99px; }
+    :focus-visible { outline: 2px solid rgba(245,151,31,0.7); outline-offset: 3px; border-radius: 6px; }
+
+    /* ── HEADER ── */
+    .site-header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: rgba(14,10,6,0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .logo-name {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+
+    /* ── HERO COM IMAGEM ── */
+    .hero-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        linear-gradient(to bottom, rgba(14,10,6,0.55) 0%, rgba(14,10,6,0.75) 60%, rgba(14,10,6,1) 100%),
+        url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1600&q=85&auto=format&fit=crop') center/cover no-repeat;
+    }
+
+    /* ── PAGE WRAP ── */
+    .page {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 88px 20px 60px;
+    }
+
+    .quiz-wrap {
+      width: 100%;
+      max-width: 520px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── SCREEN TRANSITIONS ── */
+    .screen { display: none; }
+    .screen.active {
+      display: block;
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── HERO SCREEN ── */
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 6px 16px;
+      margin-bottom: 24px;
+      background: rgba(245,151,31,0.06);
+    }
+
+    .dot-pulse {
+      width: 6px; height: 6px;
+      background: var(--brand);
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(38px, 9vw, 68px);
+      font-weight: 500;
+      line-height: 1.06;
+      letter-spacing: -0.01em;
+      margin-bottom: 18px;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--brand);
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 36px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px 24px;
+      background: var(--brand);
+      color: var(--white);
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-primary:hover {
+      background: var(--brand2);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 40px rgba(245,151,31,0.25);
+    }
+
+    .hero-trust {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
+    .trust-item span { color: var(--brand); }
+
+    /* ── PROGRESS ── */
+    .progress-wrap {
+      margin-bottom: 28px;
+    }
+
+    .progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .progress-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted2);
+    }
+
+    .progress-count {
+      font-size: 11px;
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    .progress-track {
+      height: 2px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--brand);
+      border-radius: 99px;
+      transition: width 0.5s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    /* ── QUESTION ── */
+    .q-step {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--brand);
+      margin-bottom: 10px;
+    }
+
+    .q-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(24px, 5vw, 36px);
+      font-weight: 500;
+      line-height: 1.15;
+      margin-bottom: 24px;
+    }
+
+    /* ── OPTIONS ── */
+    .options { display: flex; flex-direction: column; gap: 10px; }
+
+    .option {
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
+      text-align: left;
+      width: 100%;
+    }
+
+    .option:hover {
+      border-color: rgba(245,151,31,0.4);
+      background: rgba(245,151,31,0.05);
+      transform: translateY(-1px);
+    }
+
+    .option:active { transform: scale(0.99); }
+
+    .opt-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: rgba(245,151,31,0.08);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+
+    .opt-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      line-height: 1.3;
+    }
+
+    .opt-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── RESULT SCREENS ── */
+    .result-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+    }
+
+    .result-icon.ok {
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+
+    .result-icon.wait {
+      background: rgba(245,151,31,0.1);
+      border: 1px solid var(--border);
+    }
+
+    .result-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(26px, 5vw, 38px);
+      font-weight: 600;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .result-text {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    /* ── SUMMARY ── */
+    .summary {
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 20px;
+    }
+
+    .summary-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand);
+      margin-bottom: 12px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+
+    .summary-row:last-child { border-bottom: none; }
+    .summary-row .k { color: var(--muted); }
+    .summary-row .v { font-weight: 600; }
+
+    /* ── BUTTONS ── */
+    .btn-wa {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      width: 100%;
+      padding: 15px 24px;
+      background: #22C55E;
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-wa:hover {
+      background: #16a34a;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(34,197,94,0.2);
+    }
+
+    .btn-ghost {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 11px 20px;
+      background: transparent;
+      color: var(--muted2);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      margin-top: 10px;
+    }
+
+    .btn-ghost:hover { border-color: var(--border); color: var(--white); }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 12px; }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 13px 15px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input::placeholder { color: rgba(255,255,255,0.2); }
+    .form-input:focus { border-color: rgba(245,151,31,0.4); }
+
+    /* ── CONFIRM ── */
+    .confirm-wrap { text-align: center; padding: 10px 0; }
+    .confirm-emoji { font-size: 44px; margin-bottom: 14px; }
+    .confirm-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .confirm-text { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+    /* ── DIVIDER ── */
+    .hr { height: 1px; background: var(--border2); margin: 20px 0; }
+
+    /* ── FOOTER ── */
+    .site-footer {
+      padding: 28px 20px;
+      text-align: center;
+      border-top: 1px solid var(--border2);
+    }
+
+    .site-footer p { font-size: 11px; color: rgba(255,255,255,0.2); }
+    .site-footer p + p { margin-top: 4px; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 400px) {
+      .page { padding-top: 80px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HERO BG IMAGE ── -->
+<div class="hero-bg"></div>
+
+<!-- ── HEADER ── -->
+<header class="site-header">
+  <a href="https://www.nextplane.com.br" class="logo-name" aria-label="Next Plane">
+    Next Plane
+  </a>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="page">
+  <div class="quiz-wrap">
+
+    <!-- SCREEN 0: Hero -->
+    <div class="screen active" id="screen-0">
+      <div class="hero-eyebrow">
+        <span class="dot-pulse"></span>
+        Onde o sonho embarca e a realidade decola
+      </div>
+      <h1 class="hero-title">
+        Descubra sua<br /><em>viagem dos sonhos</em>
+      </h1>
+      <p class="hero-sub">
+        Responda 4 perguntas rápidas e nossa equipe monta o roteiro perfeito para você — com prioridade de atendimento.
+      </p>
+      <button class="btn-primary" onclick="startQuiz()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Começar agora — 2 minutos
+      </button>
+      <div class="hero-trust">
+        <div class="trust-item"><span>★</span> 4.9 no Google</div>
+        <div class="trust-item"><span>✦</span> +500 famílias atendidas</div>
+        <div class="trust-item"><span>✦</span> 50+ destinos</div>
+      </div>
+    </div>
+
+    <!-- QUIZ FLOW -->
+    <div id="quiz-flow" style="display:none;">
+
+      <!-- Progress -->
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Seu perfil de viagem</span>
+          <span class="progress-count" id="prog-count">1 / 4</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="prog-fill" style="width:25%"></div>
+        </div>
+      </div>
+
+      <!-- Q1 -->
+      <div class="screen" id="screen-1">
+        <div class="q-step">Pergunta 1 de 4</div>
+        <div class="q-title">Quando você pretende viajar?</div>
+        <div class="options">
+          <button class="option" onclick="answer('prazo','curto','Nos próximos 3 meses',2)">
+            <div class="opt-icon">⚡</div>
+            <div>
+              <div class="opt-title">Nos próximos 3 meses</div>
+              <div class="opt-sub">Viagem próxima, decisão urgente</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('prazo','medio','De 3 a 6 meses',2)">
+            <div class="opt-icon">📅</div>
+            <div>
+              <div class="opt-title">De 3 a 6 meses</div>
+              <div class="opt-sub">Planejando com antecedência</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('prazo','longo','Sem data definida',2)">
+            <div class="opt-icon">🌙</div>
+            <div>
+              <div class="opt-title">Ainda sem data definida</div>
+              <div class="opt-sub">Sonhando, explorando possibilidades</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="screen" id="screen-2">
+        <div class="q-step">Pergunta 2 de 4</div>
+        <div class="q-title">Qual o perfil dessa viagem?</div>
+        <div class="options">
+          <button class="option" onclick="answer('perfil','casal','Casal',3)">
+            <div class="opt-icon">💑</div>
+            <div>
+              <div class="opt-title">Casal</div>
+              <div class="opt-sub">Lua de mel, aniversário ou escapada a dois</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('perfil','familia','Família',3)">
+            <div class="opt-icon">👨‍👩‍👧‍👦</div>
+            <div>
+              <div class="opt-title">Família</div>
+              <div class="opt-sub">Férias inesquecíveis com filhos</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('perfil','grupo','Grupo de amigos',3)">
+            <div class="opt-icon">🎉</div>
+            <div>
+              <div class="opt-title">Grupo de amigos</div>
+              <div class="opt-sub">Aventura e experiências compartilhadas</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('perfil','solo','Sozinho(a)',3)">
+            <div class="opt-icon">🌍</div>
+            <div>
+              <div class="opt-title">Sozinho(a)</div>
+              <div class="opt-sub">Liberdade e autodescoberta</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="screen" id="screen-3">
+        <div class="q-step">Pergunta 3 de 4</div>
+        <div class="q-title">Qual destino te interessa mais?</div>
+        <div class="options">
+          <button class="option" onclick="answer('destino','europa','Europa',4)">
+            <div class="opt-icon">🏰</div>
+            <div>
+              <div class="opt-title">Europa</div>
+              <div class="opt-sub">Paris, Roma, Lisboa, Barcelona…</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('destino','eua','Estados Unidos',4)">
+            <div class="opt-icon">🗽</div>
+            <div>
+              <div class="opt-title">Estados Unidos</div>
+              <div class="opt-sub">Orlando, Miami, Nova York, Las Vegas…</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('destino','caribe','Caribe / América Central',4)">
+            <div class="opt-icon">🌴</div>
+            <div>
+              <div class="opt-title">Caribe / América Central</div>
+              <div class="opt-sub">Cancún, Punta Cana, Costa Rica…</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('destino','america_sul','América do Sul',4)">
+            <div class="opt-icon">🏔️</div>
+            <div>
+              <div class="opt-title">América do Sul</div>
+              <div class="opt-sub">Bariloche, Buenos Aires, Machu Picchu…</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('destino','indeciso','Ainda não decidi',4)">
+            <div class="opt-icon">🗺️</div>
+            <div>
+              <div class="opt-title">Ainda não decidi</div>
+              <div class="opt-sub">Quero sugestões da equipe</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="screen" id="screen-4">
+        <div class="q-step">Pergunta 4 de 4</div>
+        <div class="q-title">Qual faixa de investimento você tem em mente?</div>
+        <div class="options">
+          <button class="option" onclick="answer('investimento','ate5k','Até R$ 5 mil','result')">
+            <div class="opt-icon">💚</div>
+            <div>
+              <div class="opt-title">Até R$ 5 mil</div>
+              <div class="opt-sub">Por pessoa</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('investimento','5a15k','R$ 5 mil a R$ 15 mil','result')">
+            <div class="opt-icon">✈️</div>
+            <div>
+              <div class="opt-title">R$ 5 mil a R$ 15 mil</div>
+              <div class="opt-sub">Por pessoa</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('investimento','15kmais','Acima de R$ 15 mil','result')">
+            <div class="opt-icon">👑</div>
+            <div>
+              <div class="opt-title">Acima de R$ 15 mil</div>
+              <div class="opt-sub">Experiência premium sem limites</div>
+            </div>
+          </button>
+          <button class="option" onclick="answer('investimento','naosei','Ainda não pesquisei','result')">
+            <div class="opt-icon">🤔</div>
+            <div>
+              <div class="opt-title">Ainda não pesquisei</div>
+              <div class="opt-sub">Quero entender as possibilidades</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /quiz-flow -->
+
+    <!-- RESULT: QUALIFICADO -->
+    <div class="screen" id="screen-qualified">
+      <div style="text-align:center;padding-top:12px;">
+        <div class="result-icon ok">✓</div>
+        <div class="result-title" style="color:#22C55E;">Você garantiu prioridade!</div>
+        <p class="result-text">
+          Seu perfil tem prioridade no atendimento. Clique abaixo para falar agora com nosso especialista — sua resposta já vai junto.
+        </p>
+      </div>
+
+      <div class="summary">
+        <div class="summary-label">Seu perfil de viagem</div>
+        <div class="summary-row"><span class="k">Prazo</span><span class="v" id="sq-prazo">—</span></div>
+        <div class="summary-row"><span class="k">Perfil</span><span class="v" id="sq-perfil">—</span></div>
+        <div class="summary-row"><span class="k">Destino</span><span class="v" id="sq-destino">—</span></div>
+        <div class="summary-row"><span class="k">Investimento</span><span class="v" id="sq-invest">—</span></div>
+      </div>
+
+      <a id="wa-link" href="#" class="btn-wa" target="_blank" rel="noopener">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Falar com especialista agora
+      </a>
+
+      <button class="btn-ghost" onclick="restart()">↩ Refazer o quiz</button>
+    </div>
+
+    <!-- RESULT: NÃO QUALIFICADO -->
+    <div class="screen" id="screen-nurture">
+      <div style="text-align:center;padding-top:12px;">
+        <div class="result-icon wait">⏳</div>
+        <div class="result-title">Recebemos seu interesse!</div>
+        <p class="result-text">
+          Deixe seu nome e WhatsApp abaixo. Nossa equipe entra em contato em até 48 horas com novidades e condições especiais para o seu perfil.
+        </p>
+      </div>
+
+      <div class="summary">
+        <div class="summary-label">Seu perfil de viagem</div>
+        <div class="summary-row"><span class="k">Prazo</span><span class="v" id="nq-prazo">—</span></div>
+        <div class="summary-row"><span class="k">Perfil</span><span class="v" id="nq-perfil">—</span></div>
+        <div class="summary-row"><span class="k">Destino</span><span class="v" id="nq-destino">—</span></div>
+        <div class="summary-row"><span class="k">Investimento</span><span class="v" id="nq-invest">—</span></div>
+      </div>
+
+      <div id="nurture-form">
+        <div class="form-group">
+          <label class="form-label" for="lead-name">Seu nome</label>
+          <input class="form-input" type="text" id="lead-name" placeholder="Como você se chama?" autocomplete="given-name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="lead-phone">WhatsApp com DDD</label>
+          <input class="form-input" type="tel" id="lead-phone" placeholder="(48) 99999-9999" inputmode="numeric" autocomplete="tel" />
+        </div>
+        <button class="btn-primary" onclick="submitNurture()" id="submit-btn">
+          Enviar e entrar na lista
+        </button>
+      </div>
+
+      <div id="nurture-confirm" style="display:none;" class="confirm-wrap">
+        <div class="confirm-emoji">🎉</div>
+        <div class="confirm-title">Tudo certo!</div>
+        <p class="confirm-text">Recebemos seus dados. Em até 48 horas nossa equipe vai te procurar com as melhores opções para sua viagem.</p>
+      </div>
+
+      <button class="btn-ghost" onclick="restart()" style="margin-top:12px;">↩ Refazer o quiz</button>
+    </div>
+
+  </div><!-- /quiz-wrap -->
+</main>
+
+<!-- ── FOOTER ── -->
+<footer class="site-footer">
+  <p>© 2025 Next Plane — Viagens & Experiências · CNPJ 54.108.033/0001-89</p>
+  <p>Santa Catarina, SC · Atendimento Online — Brasil</p>
+</footer>
+
+<script>
+/* ═══════════════════════════════════
+   CONFIGURAÇÃO — editar aqui
+═══════════════════════════════════ */
+const CONFIG = {
+  WA_NUMBER:        '5548988636608',  // número público — leads qualificados
+  OWNER_WA_NUMBER:  '5548988636608',  // número do dono — recebe leads não qualificados
+};
+
+/* ═══════════════════════════════════
+   ESTADO
+═══════════════════════════════════ */
+const A = {};   // answers (valores)
+const L = {};   // labels  (textos legíveis)
+
+/* ═══════════════════════════════════
+   NAVEGAÇÃO
+═══════════════════════════════════ */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (!el) return;
+  el.classList.add('active');
+  el.style.animation = 'none';
+  requestAnimationFrame(() => { el.style.animation = ''; });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function startQuiz() {
+  document.getElementById('screen-0').style.display = 'none';
+  document.getElementById('quiz-flow').style.display = 'block';
+  setProgress(1);
+  show(1);
+}
+
+function answer(key, val, label, next) {
+  A[key] = val;
+  L[key] = label;
+  if (next === 'result') {
+    evaluate();
+  } else {
+    setProgress(next);
+    show(next);
+  }
+}
+
+function setProgress(step) {
+  const n = parseInt(step);
+  const pct = (n / 4) * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-count').textContent = n + ' / 4';
+}
+
+/* ═══════════════════════════════════
+   QUALIFICAÇÃO
+═══════════════════════════════════ */
+function evaluate() {
+  const qualified =
+    (A.prazo === 'curto' || A.prazo === 'medio') &&
+    (A.investimento === '5a15k' || A.investimento === '15kmais');
+
+  document.getElementById('quiz-flow').style.display = 'none';
+
+  if (qualified) {
+    fillSummary('sq');
+    buildWA();
+    show('qualified');
+  } else {
+    fillSummary('nq');
+    show('nurture');
+  }
+}
+
+function fillSummary(pfx) {
+  document.getElementById(pfx + '-prazo'  ).textContent = L.prazo        || '—';
+  document.getElementById(pfx + '-perfil' ).textContent = L.perfil       || '—';
+  document.getElementById(pfx + '-destino').textContent = L.destino      || '—';
+  document.getElementById(pfx + '-invest' ).textContent = L.investimento || '—';
+}
+
+function buildWA() {
+  const msg = encodeURIComponent(
+    `Olá! Vim da campanha Europa e quero saber mais sobre minha viagem.\n\n` +
+    `📅 Prazo: ${L.prazo}\n` +
+    `👤 Perfil: ${L.perfil}\n` +
+    `🌍 Destino: ${L.destino}\n` +
+    `💰 Investimento: ${L.investimento}`
+  );
+  document.getElementById('wa-link').href = `https://wa.me/${CONFIG.WA_NUMBER}?text=${msg}`;
+}
+
+/* ═══════════════════════════════════
+   SUBMIT NUTRIÇÃO
+═══════════════════════════════════ */
+function submitNurture() {
+  const name  = document.getElementById('lead-name').value.trim();
+  const phone = document.getElementById('lead-phone').value.trim();
+  if (!name || !phone) { alert('Preencha nome e WhatsApp para continuar.'); return; }
+
+  document.getElementById('nurture-form').style.display    = 'none';
+  document.getElementById('nurture-confirm').style.display = 'block';
+}
+
+/* ═══════════════════════════════════
+   RESTART
+═══════════════════════════════════ */
+function restart() {
+  Object.keys(A).forEach(k => delete A[k]);
+  Object.keys(L).forEach(k => delete L[k]);
+
+  const nameEl  = document.getElementById('lead-name');
+  const phoneEl = document.getElementById('lead-phone');
+  const btn     = document.getElementById('submit-btn');
+  if (nameEl)  nameEl.value = '';
+  if (phoneEl) phoneEl.value = '';
+  if (btn)     { btn.textContent = 'Enviar e entrar na lista'; btn.disabled = false; }
+  document.getElementById('nurture-form').style.display    = 'block';
+  document.getElementById('nurture-confirm').style.display = 'none';
+
+  document.getElementById('quiz-flow').style.display = 'none';
+  document.getElementById('screen-0').style.display  = 'block';
+  show(0);
+}
+
+/* ═══════════════════════════════════
+   MÁSCARA TELEFONE
+═══════════════════════════════════ */
+document.getElementById('lead-phone').addEventListener('input', function(e) {
+  let v = e.target.value.replace(/\D/g,'').slice(0,11);
+  if      (v.length > 6) v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+  else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+  else if (v.length > 0) v = `(${v}`;
+  e.target.value = v;
+});
+</script>
+</body>
+</html>
