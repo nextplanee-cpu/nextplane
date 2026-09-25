@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sendFunnelLead } from '../lib/leadsApi'
 
 /* ── CONFIG ── */
 const WA_ESPECIALISTA = '5548988636608'
@@ -63,6 +64,11 @@ function salvarNoCRM({ nome, telefone, answers, labels, qualificado = false }) {
     leads.push(lead)
     localStorage.setItem('crm_leads', JSON.stringify(leads))
     localStorage.setItem('crm_next_id', String(nextId + 1))
+
+    // Envia também para o CRM na nuvem (o localStorage do visitante não chega no CRM)
+    const { name, phone, dest: d, type, value, temp, source, obs } = lead
+    sendFunnelLead({ name, phone, dest: d, type, value, temp, source, obs })
+      .catch(e => console.warn('CRM nuvem indisponível:', e.message))
   } catch (e) {
     console.error('Erro ao salvar no CRM:', e)
   }

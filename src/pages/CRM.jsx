@@ -4,8 +4,12 @@ import {
   Zap, BarChart2, Building2, Plus, X, Search,
   MessageCircle, ChevronRight, LogOut, Bell,
   Phone, Mail, MapPin, Calendar, Star, TrendingUp,
-  CheckCircle2, AlertCircle, Clock, Filter
+  CheckCircle2, AlertCircle, Clock, Filter,
+  Cloud, CloudOff, Megaphone, RefreshCw
 } from 'lucide-react'
+import {
+  getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, waLink,
+} from '../lib/leadsApi'
 
 /* ─── Design tokens ─────────────────────────────────── */
 const T = {
@@ -90,6 +94,69 @@ const Sel = ({ label, children, ...props }) => (
   </div>
 )
 
+/* ─── Meta Ads · respostas do formulário ─────────────── */
+const META_DEST    = [['Europa','Europa'],['EUA','EUA'],['Ásia','Ásia'],['Oceania','Oceania']]
+const META_PESSOAS = [['1','1 pessoa'],['2','2 pessoas'],['3-4','3 ou 4 pessoas'],['5+','5 ou mais']]
+const META_DIAS    = [['ate10','Até 10 dias'],['11-15','11 a 15 dias'],['15+','Acima de 15 dias']]
+const META_INVEST  = [['ate20','Até R$ 20 mil'],['20-30','R$ 20–30 mil'],['30-40','R$ 30–40 mil'],['40+','Acima de R$ 40 mil']]
+const labelOf = (opts, v) => (opts.find(o => o[0] === v) || [v, v || '—'])[1]
+
+/* Barras horizontais de distribuição (BI) */
+const DistBars = ({ title, opts, leads, field, color = T.gold }) => {
+  const total = leads.length || 1
+  return (
+    <Card>
+      <h3 style={{ fontSize:14, fontWeight:700, margin:'0 0 14px' }}>{title}</h3>
+      {opts.map(([key, label]) => {
+        const cnt = leads.filter(l => l[field] === key).length
+        const pct = Math.round(cnt / total * 100)
+        return (
+          <div key={key} style={{ marginBottom:10 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+              <span style={{ fontSize:12, color:T.muted }}>{label}</span>
+              <span style={{ fontSize:12, fontWeight:700, color }}>{cnt} <span style={{ color:T.muted, fontWeight:400 }}>· {leads.length ? pct : 0}%</span></span>
+            </div>
+            <div style={{ height:6, background:'rgba(255,255,255,0.06)', borderRadius:4 }}>
+              <div style={{ height:'100%', width:`${leads.length ? pct : 0}%`, background:color, borderRadius:4, transition:'width .3s' }}/>
+            </div>
+          </div>
+        )
+      })}
+    </Card>
+  )
+}
+
+/* Leads por dia (colunas) */
+const DailyBars = ({ leads, days }) => {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const cols = Array.from({ length:days }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - (days - 1 - i))
+    const next = new Date(d); next.setDate(d.getDate() + 1)
+    const cnt = leads.filter(l => { const c = new Date(l.createdAt || 0); return c >= d && c < next }).length
+    return { d, cnt }
+  })
+  const max = Math.max(1, ...cols.map(c => c.cnt))
+  return (
+    <Card>
+      <h3 style={{ fontSize:14, fontWeight:700, margin:'0 0 14px' }}>Leads por dia · últimos {days} dias</h3>
+      <div style={{ display:'flex', alignItems:'flex-end', gap:4, height:130 }}>
+        {cols.map(({ d, cnt }, i) => (
+          <div key={i} title={`${d.toLocaleDateString('pt-BR')}: ${cnt} lead(s)`}
+            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', height:'100%' }}>
+            {cnt > 0 && <span style={{ fontSize:10, color:T.gold, marginBottom:2 }}>{cnt}</span>}
+            <div style={{ width:'100%', maxWidth:22, height:`${cnt / max * 100}%`, minHeight:cnt ? 3 : 1,
+              background: cnt ? 'linear-gradient(180deg,#f0d060,#D4AF37)' : 'rgba(255,255,255,0.06)', borderRadius:'3px 3px 0 0' }}/>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, fontSize:10, color:T.muted }}>
+        <span>{cols[0].d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })}</span>
+        <span>hoje</span>
+      </div>
+    </Card>
+  )
+}
+
 /* ─── MAIN CRM ───────────────────────────────────────── */
 export default function CRM() {
   const [view,       setView]       = useState('dashboard')
@@ -112,8 +179,63 @@ export default function CRM() {
     } catch { return 13 }
   })
 
-  // Sincroniza leads do localStorage a cada 3s (captura leads do funil automaticamente)
+  /* ── Nuvem (Supabase via /api/leads) ──
+     mode: 'local' = dados só neste navegador · 'cloud' = dados compartilhados na nuvem */
+  const [mode,       setMode]       = useState('local')
+  const [cloudMsg,   setCloudMsg]   = useState('')
+  const [showCloud,  setShowCloud]  = useState(false)
+  const [keyInput,   setKeyInput]   = useState('')
+  const [syncing,    setSyncing]    = useState(false)
+  const [metaPeriod, setMetaPeriod] = useState('30')
+
+  const loadCloud = async (key = getAccessKey(), { quiet = false } = {}) => {
+    if (!key) return false
+    if (!quiet) setSyncing(true)
+    try {
+      const data = await fetchLeads(key)
+      setAccessKey(key)
+      setLeads(data)
+      setMode('cloud')
+      setCloudMsg('')
+      return true
+    } catch (err) {
+      if (err.status === 401) { setAccessKey(''); setMode('local'); setCloudMsg('Chave de acesso inválida.') }
+      else if (err.status === 503) setCloudMsg('A nuvem ainda não foi configurada na Vercel.')
+      else if (!quiet) setCloudMsg('Não foi possível conectar à nuvem agora.')
+      return false
+    } finally {
+      if (!quiet) setSyncing(false)
+    }
+  }
+
+  // Conecta na nuvem ao abrir, se já houver chave salva
+  useEffect(() => { if (getAccessKey()) loadCloud() }, [])
+
+  // Na nuvem: busca leads novos (ex.: Meta Ads) a cada 20s
   useEffect(() => {
+    if (mode !== 'cloud') return
+    const interval = setInterval(() => loadCloud(undefined, { quiet: true }), 20000)
+    return () => clearInterval(interval)
+  }, [mode])
+
+  const connectCloud = async () => {
+    const ok = await loadCloud(keyInput.trim())
+    if (ok) { setShowCloud(false); setKeyInput('') }
+  }
+
+  const disconnectCloud = () => {
+    setAccessKey('')
+    setMode('local')
+    try {
+      const saved = localStorage.getItem('crm_leads')
+      setLeads(saved ? JSON.parse(saved) : LEADS_INIT)
+    } catch { setLeads(LEADS_INIT) }
+    setShowCloud(false)
+  }
+
+  // Modo local: sincroniza leads do localStorage a cada 3s
+  useEffect(() => {
+    if (mode === 'cloud') return
     const sync = () => {
       try {
         const saved = localStorage.getItem('crm_leads')
@@ -135,12 +257,13 @@ export default function CRM() {
       clearInterval(interval)
       window.removeEventListener('focus', sync)
     }
-  }, [])
+  }, [mode])
 
-  // Salva automaticamente sempre que leads ou nextId mudam
+  // Modo local: salva automaticamente sempre que leads mudam
   useEffect(() => {
+    if (mode === 'cloud') return
     try { localStorage.setItem('crm_leads', JSON.stringify(leads)) } catch {}
-  }, [leads])
+  }, [leads, mode])
 
   useEffect(() => {
     try { localStorage.setItem('crm_next_id', String(nextId)) } catch {}
@@ -165,8 +288,20 @@ export default function CRM() {
   })
 
   /* ── Adicionar lead ── */
-  const addLead = () => {
+  const resetNewLead = () =>
+    setNewLead({ name:'', dest:'', value:'', type:'Internacional', temp:'Morno', source:'WhatsApp', stage:0, phone:'', email:'', cidade:'', obs:'' })
+
+  const addLead = async () => {
     if (!newLead.name || !newLead.dest) return
+    if (mode === 'cloud') {
+      try {
+        const created = await createLead({ ...newLead, value: parseInt(newLead.value) || 0, consultor: 'Joseph' })
+        setLeads(p => [created, ...p])
+        setShowNew(false)
+        resetNewLead()
+      } catch { alert('Não foi possível salvar o lead na nuvem. Tente de novo.') }
+      return
+    }
     const words = newLead.name.trim().split(' ')
     const initials = words.length >= 2
       ? words[0][0] + words[words.length - 1][0]
@@ -183,13 +318,21 @@ export default function CRM() {
     }])
     setNextId(n => n + 1)
     setShowNew(false)
-    setNewLead({ name:'', dest:'', value:'', type:'Internacional', temp:'Morno', source:'WhatsApp', stage:0, phone:'', email:'', cidade:'', obs:'' })
+    resetNewLead()
   }
 
   /* ── Mover estágio ── */
   const moveStage = (id, stage) => {
+    const prev = leads.find(l => l.id === id)?.stage
     setLeads(p => p.map(l => l.id === id ? { ...l, stage } : l))
     if (selected?.id === id) setSelected(s => ({ ...s, stage }))
+    if (mode === 'cloud') {
+      patchLead(id, { stage }).catch(() => {
+        setLeads(p => p.map(l => l.id === id ? { ...l, stage: prev } : l))
+        if (selected?.id === id) setSelected(s => ({ ...s, stage: prev }))
+        alert('Não foi possível salvar a mudança de estágio na nuvem.')
+      })
+    }
   }
 
   /* ── Estilos comuns ── */
@@ -201,6 +344,7 @@ export default function CRM() {
     { id:'dashboard',   icon:<LayoutDashboard size={16}/>, label:'Dashboard'    },
     { id:'pipeline',    icon:<GitBranch       size={16}/>, label:'Pipeline'     },
     { id:'leads',       icon:<Users           size={16}/>, label:'Leads'        },
+    { id:'meta',        icon:<Megaphone       size={16}/>, label:'Leads Meta'   },
     { id:'propostas',   icon:<FileText        size={16}/>, label:'Propostas'    },
     { id:'automacoes',  icon:<Zap             size={16}/>, label:'Automações'   },
     { id:'relatorios',  icon:<BarChart2       size={16}/>, label:'Relatórios'   },
@@ -453,12 +597,14 @@ export default function CRM() {
                         padding:'4px 10px', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
                       Ver
                     </button>
-                    <button
-                      style={{ background:'#25D36615', color:'#25D366',
-                        border:'1px solid #25D36630', borderRadius:6,
-                        padding:'4px 10px', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
-                      WA
-                    </button>
+                    {lead.phone && (
+                      <a href={waLink(lead.phone, lead.name)} target="_blank" rel="noreferrer"
+                        style={{ background:'#25D36615', color:'#25D366',
+                          border:'1px solid #25D36630', borderRadius:6, textDecoration:'none',
+                          padding:'4px 10px', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
+                        WA
+                      </a>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -474,6 +620,176 @@ export default function CRM() {
       </Card>
     </div>
   )
+
+  /* ── LEADS META (BI do formulário de Lead Ads) ── */
+  const ViewMeta = () => {
+    const metaAll = leads.filter(l => l.source === 'Meta Ads')
+    const since = metaPeriod === 'all' ? null : new Date(Date.now() - parseInt(metaPeriod) * 864e5)
+    const meta = since ? metaAll.filter(l => new Date(l.createdAt || 0) >= since) : metaAll
+    const today0 = new Date(); today0.setHours(0,0,0,0)
+    const hoje   = meta.filter(l => new Date(l.createdAt || 0) >= today0).length
+    const hot    = meta.filter(l => l.temp === 'Quente' || l.temp === 'VIP').length
+    const fila   = metaAll.filter(l => l.stage === 0)
+      .sort((a, b) => (b.score || 0) - (a.score || 0) || new Date(a.createdAt) - new Date(b.createdAt))
+    const potencial = meta.reduce((a, b) => a + b.value, 0)
+
+    const campanhas = Object.values(meta.reduce((acc, l) => {
+      const k = `${l.campaign_name || '—'}||${l.ad_name || '—'}`
+      acc[k] = acc[k] || { camp: l.campaign_name || '—', ad: l.ad_name || '—', n: 0, hot: 0, val: 0 }
+      acc[k].n++; acc[k].val += l.value
+      if (l.temp === 'Quente' || l.temp === 'VIP') acc[k].hot++
+      return acc
+    }, {})).sort((a, b) => b.n - a.n)
+
+    return (
+      <div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18, flexWrap:'wrap', gap:10 }}>
+          <div>
+            <h2 style={{ fontSize:20, fontWeight:700, margin:0 }}>Leads Meta Ads</h2>
+            <p style={{ color:T.muted, fontSize:13, margin:'4px 0 0' }}>Formulário "Assessoria Viagem" · entram sozinhos pelo webhook da Meta</p>
+          </div>
+          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+            {[['7','7 dias'],['30','30 dias'],['all','Tudo']].map(([k, lbl]) => (
+              <button key={k} onClick={() => setMetaPeriod(k)}
+                style={{ background: metaPeriod === k ? 'rgba(212,175,55,0.15)' : 'transparent',
+                  color: metaPeriod === k ? T.gold : T.muted, border: metaPeriod === k ? `1px solid ${T.gold}55` : T.borderN,
+                  borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                {lbl}
+              </button>
+            ))}
+            {mode === 'cloud' && (
+              <Btn outline small onClick={() => loadCloud()} disabled={syncing}>
+                <RefreshCw size={12}/> {syncing ? 'Atualizando…' : 'Atualizar'}
+              </Btn>
+            )}
+          </div>
+        </div>
+
+        {mode !== 'cloud' && (
+          <Card style={{ marginBottom:14, borderLeft:`3px solid ${T.info}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, marginBottom:3 }}>Conecte o CRM à nuvem</div>
+              <div style={{ fontSize:12, color:T.muted }}>Os leads do Meta Ads chegam na nuvem. Conecte para vê-los aqui em tempo real, em qualquer dispositivo.</div>
+            </div>
+            <Btn onClick={() => setShowCloud(true)}><Cloud size={14}/> Conectar nuvem</Btn>
+          </Card>
+        )}
+
+        {/* KPIs */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:14, marginBottom:14 }}>
+          {[
+            { label:'Leads no período',     val:meta.length,                     color:T.info    },
+            { label:'Chegaram hoje',        val:hoje,                            color:T.success },
+            { label:'Quentes + VIP',        val:`${hot} · ${meta.length ? Math.round(hot / meta.length * 100) : 0}%`, color:T.err },
+            { label:'Aguardando contato',   val:fila.length,                     color:T.warn    },
+            { label:'Potencial estimado',   val:fmtR(potencial),                 color:T.gold    },
+          ].map((k, i) => (
+            <Card key={i}>
+              <div style={{ fontSize:24, fontWeight:700, color:k.color, lineHeight:1, marginBottom:6 }}>{k.val}</div>
+              <div style={{ fontSize:12, color:T.muted }}>{k.label}</div>
+            </Card>
+          ))}
+        </div>
+
+        <div style={{ marginBottom:14 }}>
+          <DailyBars leads={meta} days={metaPeriod === '7' ? 7 : 14}/>
+        </div>
+
+        {/* Distribuições */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:14, marginBottom:14 }}>
+          <DistBars title="✈️ Destino"            opts={META_DEST}    leads={meta} field="dest"         color="#3B82F6"/>
+          <DistBars title="💰 Investimento"        opts={META_INVEST}  leads={meta} field="investimento" color={T.gold}/>
+          <DistBars title="👥 Pessoas"             opts={META_PESSOAS} leads={meta} field="pessoas"      color="#8B5CF6"/>
+          <DistBars title="📅 Dias de viagem"      opts={META_DIAS}    leads={meta} field="dias"         color="#06B6D4"/>
+          <DistBars title="🌡️ Temperatura"        opts={['VIP','Quente','Morno','Frio'].map(t => [t, `${TEMP_I[t]} ${t}`])} leads={meta} field="temp" color={T.err}/>
+        </div>
+
+        {/* Fila de atendimento */}
+        <Card style={{ marginBottom:14, padding:0 }}>
+          <div style={{ padding:'16px 20px 10px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <h3 style={{ fontSize:14, fontWeight:700, margin:0 }}>📞 Fila de atendimento · prioridade por score</h3>
+            <span style={{ fontSize:12, color:T.muted }}>Prometido no formulário: contato em até 24h</span>
+          </div>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr>{['Lead','Destino','Pessoas','Dias','Investimento','Temp.','Chegou','Ações'].map(h => <th key={h} style={thS}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {fila.map(l => {
+                  const horas = Math.floor((Date.now() - new Date(l.createdAt)) / 36e5)
+                  const wa = waLink(l.phone, l.name)
+                  return (
+                    <tr key={l.id} style={{ cursor:'pointer' }} onClick={() => setSelected(l)}>
+                      <td style={tdS}>
+                        <div style={{ fontWeight:600 }}>{l.name}</div>
+                        <div style={{ fontSize:11, color:T.muted }}>{l.phone || 'sem telefone'}</div>
+                      </td>
+                      <td style={tdS}>{l.dest || '—'}</td>
+                      <td style={tdS}>{labelOf(META_PESSOAS, l.pessoas)}</td>
+                      <td style={tdS}>{labelOf(META_DIAS, l.dias)}</td>
+                      <td style={{ ...tdS, color:T.gold, fontWeight:600 }}>{labelOf(META_INVEST, l.investimento)}</td>
+                      <td style={tdS}><Badge color={TEMP_C[l.temp] || T.muted} small>{TEMP_I[l.temp]} {l.temp}</Badge></td>
+                      <td style={{ ...tdS, fontSize:12, color: horas >= 24 ? T.err : horas >= 1 ? T.warn : T.success }}>
+                        {horas < 1 ? 'agora' : `há ${horas}h`}
+                      </td>
+                      <td style={tdS} onClick={e => e.stopPropagation()}>
+                        <div style={{ display:'flex', gap:6 }}>
+                          {wa && (
+                            <a href={wa} target="_blank" rel="noreferrer"
+                              style={{ background:'#25D36615', color:'#25D366', border:'1px solid #25D36630', borderRadius:6,
+                                padding:'4px 10px', fontSize:11, textDecoration:'none', fontWeight:600 }}>
+                              WhatsApp
+                            </a>
+                          )}
+                          <button onClick={() => moveStage(l.id, 1)}
+                            style={{ background:'rgba(139,92,246,0.12)', color:'#8B5CF6', border:'1px solid rgba(139,92,246,0.3)',
+                              borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
+                            Contatado ✓
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {!fila.length && (
+              <div style={{ textAlign:'center', padding:36, color:T.muted, fontSize:13 }}>Nenhum lead do Meta aguardando contato. 🎉</div>
+            )}
+          </div>
+        </Card>
+
+        {/* Campanhas */}
+        <Card style={{ padding:0 }}>
+          <div style={{ padding:'16px 20px 10px' }}>
+            <h3 style={{ fontSize:14, fontWeight:700, margin:0 }}>📣 Por campanha e anúncio</h3>
+          </div>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr>{['Campanha','Anúncio','Leads','Quentes + VIP','Potencial'].map(h => <th key={h} style={thS}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {campanhas.map((c, i) => (
+                  <tr key={i}>
+                    <td style={tdS}>{c.camp}</td>
+                    <td style={{ ...tdS, color:T.muted }}>{c.ad}</td>
+                    <td style={{ ...tdS, fontWeight:700 }}>{c.n}</td>
+                    <td style={{ ...tdS, color:T.err, fontWeight:600 }}>{c.hot} · {Math.round(c.hot / c.n * 100)}%</td>
+                    <td style={{ ...tdS, color:T.gold, fontWeight:600 }}>{fmtR(c.val)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!campanhas.length && (
+              <div style={{ textAlign:'center', padding:28, color:T.muted, fontSize:13 }}>Sem leads do Meta no período.</div>
+            )}
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   /* ── PROPOSTAS ── */
   const ViewPropostas = () => (
@@ -729,6 +1045,7 @@ CREATE TABLE activities (
     dashboard:   <ViewDashboard/>,
     pipeline:    <ViewPipeline/>,
     leads:       <ViewLeads/>,
+    meta:        <ViewMeta/>,
     propostas:   <ViewPropostas/>,
     automacoes:  <ViewAutomacoes/>,
     relatorios:  <ViewRelatorios/>,
@@ -808,10 +1125,15 @@ CREATE TABLE activities (
               {semCtato > 0 && (
                 <Badge color={T.err}><AlertCircle size={11}/> {semCtato} sem contato</Badge>
               )}
-              <Badge color={T.success}><span style={{fontSize:8}}>●</span> Online</Badge>
+              <button onClick={() => setShowCloud(true)} title={mode === 'cloud' ? 'Conectado à nuvem' : 'Dados só neste navegador'}
+                style={{ background:'transparent', border:'none', padding:0, cursor:'pointer' }}>
+                {mode === 'cloud'
+                  ? <Badge color={T.success}><Cloud size={11}/> Nuvem</Badge>
+                  : <Badge color={T.warn}><CloudOff size={11}/> Só neste navegador</Badge>}
+              </button>
               <span style={{ fontSize:12, color:T.muted }}>{leads.length} leads · {fmtR(recReal)} realizados</span>
               <Btn onClick={() => setShowNew(true)} small><Plus size={13}/> Lead</Btn>
-              <button onClick={() => {
+              {mode !== 'cloud' && <button onClick={() => {
                 if (window.confirm('Zerar todos os leads do CRM? Esta ação não pode ser desfeita.')) {
                   localStorage.removeItem('crm_leads')
                   localStorage.removeItem('crm_next_id')
@@ -825,7 +1147,7 @@ CREATE TABLE activities (
                 padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:700,
                 fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:5 }}>
                 🗑 Zerar CRM
-              </button>
+              </button>}
             </div>
           </header>
 
@@ -887,6 +1209,14 @@ CREATE TABLE activities (
                 ['💰 Valor',    fmtR(selected.value)],
                 ['📲 Origem',   selected.source],
                 ['👤 Consultor',selected.consultor],
+                ...(selected.source === 'Meta Ads' ? [
+                  ['👥 Pessoas',       labelOf(META_PESSOAS, selected.pessoas)],
+                  ['📅 Dias',          labelOf(META_DIAS, selected.dias)],
+                  ['💎 Investimento',  labelOf(META_INVEST, selected.investimento)],
+                  ['⭐ Score',         `${selected.score ?? 0} / 10`],
+                  ['📣 Campanha',      selected.campaign_name || '—'],
+                  ['🎬 Anúncio',       selected.ad_name || '—'],
+                ] : []),
               ].map(([label, val]) => (
                 <div key={label} style={{ display:'flex', justifyContent:'space-between',
                   padding:'10px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
@@ -915,12 +1245,14 @@ CREATE TABLE activities (
                 <Btn style={{ flex:1, justifyContent:'center' }}>
                   <FileText size={14}/> Criar Proposta
                 </Btn>
-                <button style={{ background:'#25D36615', color:'#25D366',
+                <a href={waLink(selected.phone, selected.name) || undefined} target="_blank" rel="noreferrer"
+                  style={{ background:'#25D36615', color:'#25D366',
                   border:'1px solid #25D36630', borderRadius:8, padding:'9px 16px',
-                  cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:'inherit',
+                  cursor:selected.phone ? 'pointer' : 'not-allowed', opacity:selected.phone ? 1 : 0.5,
+                  fontWeight:700, fontSize:13, fontFamily:'inherit', textDecoration:'none',
                   display:'flex', alignItems:'center', gap:6 }}>
                   <MessageCircle size={14}/> WhatsApp
-                </button>
+                </a>
               </div>
             </div>
           </div>
@@ -991,6 +1323,54 @@ CREATE TABLE activities (
                   <CheckCircle2 size={14}/> Cadastrar Lead
                 </Btn>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Modal: Nuvem ── */}
+        {showCloud && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)',
+            display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+            onClick={() => setShowCloud(false)}>
+            <div style={{ background:T.card, borderRadius:14, padding:24, width:440, maxWidth:'100%',
+              border:T.borderN, borderTop:`3px solid ${mode === 'cloud' ? T.success : T.gold}` }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <div style={{ fontSize:17, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                  {mode === 'cloud' ? <Cloud size={18} color={T.success}/> : <CloudOff size={18} color={T.warn}/>}
+                  {mode === 'cloud' ? 'Conectado à nuvem' : 'Conectar à nuvem'}
+                </div>
+                <button onClick={() => setShowCloud(false)}
+                  style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}>
+                  <X size={20}/>
+                </button>
+              </div>
+
+              {mode === 'cloud' ? (
+                <>
+                  <p style={{ fontSize:13, color:T.muted, lineHeight:1.5, margin:'0 0 16px' }}>
+                    Os leads ficam salvos na nuvem e aparecem em qualquer dispositivo. Os leads do Meta Ads entram sozinhos e a lista atualiza a cada 20 segundos.
+                  </p>
+                  <Btn outline onClick={disconnectCloud} style={{ width:'100%', justifyContent:'center' }}>
+                    <CloudOff size={14}/> Desconectar deste navegador
+                  </Btn>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize:13, color:T.muted, lineHeight:1.5, margin:'0 0 14px' }}>
+                    Hoje os leads estão salvos só neste navegador. Digite a chave de acesso do CRM (a mesma cadastrada como <code>CRM_ACCESS_KEY</code> na Vercel) para usar a nuvem.
+                  </p>
+                  <Input label="Chave de acesso" type="password" value={keyInput}
+                    onChange={e => setKeyInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && keyInput.trim() && connectCloud()}
+                    placeholder="••••••••"/>
+                  {cloudMsg && <div style={{ fontSize:12, color:T.err, marginTop:8 }}>{cloudMsg}</div>}
+                  <Btn onClick={connectCloud} disabled={!keyInput.trim() || syncing}
+                    style={{ width:'100%', justifyContent:'center', marginTop:14 }}>
+                    <Cloud size={14}/> {syncing ? 'Conectando…' : 'Conectar'}
+                  </Btn>
+                </>
+              )}
             </div>
           </div>
         )}
