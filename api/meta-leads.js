@@ -63,7 +63,14 @@ export default async function handler(req, res) {
 
   try {
     for (const id of ids) {
-      const meta = await fetchLead(id)
+      let meta
+      try {
+        meta = await fetchLead(id)
+      } catch (err) {
+        // Lead inexistente (ex.: botão "Teste" do painel da Meta manda um ID falso): não adianta reenviar
+        if (err.meta?.code === 100) { console.warn(`[meta-leads] lead ${id} ignorado: ${err.message}`); continue }
+        throw err
+      }
       await insertMetaLead(metaLeadToRow(meta))
       console.log(`[meta-leads] lead ${id} salvo`)
     }
