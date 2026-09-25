@@ -49,6 +49,17 @@ export const fetchLeads  = key => call('GET', { key }).then(rows => rows.map(row
 export const createLead  = lead => call('POST', { body: lead }).then(rowToLead)
 export const patchLead   = (id, fields) => call('PATCH', { query: `?id=${encodeURIComponent(id)}`, body: fields }).then(rowToLead)
 
+/* Integração Meta: status (GET) e ligar app à Página (POST) */
+async function metaSetup(method) {
+  const res = await fetch('/api/meta-setup', { method, headers: { 'x-crm-key': getAccessKey() } })
+  let data = null
+  try { data = await res.json() } catch {}
+  if (!res.ok) throw new ApiError(res.status, data?.error)
+  return data
+}
+export const metaStatus    = () => metaSetup('GET')
+export const metaSubscribe = () => metaSetup('POST')
+
 /* Funil público → nuvem (não precisa de chave) */
 export async function sendFunnelLead(lead) {
   const res = await fetch('/api/funil-lead', {

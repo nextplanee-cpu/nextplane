@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import {
   getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, waLink,
+  metaStatus, metaSubscribe,
 } from '../lib/leadsApi'
 
 /* ─── Design tokens ─────────────────────────────────── */
@@ -187,6 +188,18 @@ export default function CRM() {
   const [keyInput,   setKeyInput]   = useState('')
   const [syncing,    setSyncing]    = useState(false)
   const [metaPeriod, setMetaPeriod] = useState('30')
+  const [metaInfo,   setMetaInfo]   = useState(null)   // status da integração Meta
+  const [metaBusy,   setMetaBusy]   = useState(false)
+
+  const checkMeta = async (subscribe = false) => {
+    setMetaBusy(true)
+    try { setMetaInfo(await (subscribe ? metaSubscribe() : metaStatus())) }
+    catch (err) { setMetaInfo({ ok:false, missing:[], error: err.status === 401 ? 'Chave do CRM inválida.' : 'Não foi possível verificar agora.' }) }
+    finally { setMetaBusy(false) }
+  }
+
+  // Verifica a integração ao abrir a aba Leads Meta na nuvem
+  useEffect(() => { if (view === 'meta' && mode === 'cloud' && !metaInfo) checkMeta() }, [view, mode])
 
   const loadCloud = async (key = getAccessKey(), { quiet = false } = {}) => {
     if (!key) return false
@@ -674,6 +687,35 @@ export default function CRM() {
             <Btn onClick={() => setShowCloud(true)}><Cloud size={14}/> Conectar nuvem</Btn>
           </Card>
         )}
+
+        {mode === 'cloud' && (() => {
+          const m = metaInfo
+          const ready = m?.ok && m.subscribed
+          const color = ready ? T.success : m ? T.warn : T.muted
+          let text = 'Verificando a integração…'
+          if (m && m.missing?.length) text = `Falta configurar na Vercel: ${m.missing.join(', ')}`
+          else if (m && !m.ok) text = `Erro: ${m.error}`
+          else if (m && !m.subscribed) text = `Página "${m.page}" encontrada, mas ainda não está enviando leads para o CRM.`
+          else if (ready) text = `Página "${m.page}" ligada. Os leads do formulário entram aqui automaticamente.`
+          return (
+            <Card style={{ marginBottom:14, borderLeft:`3px solid ${color}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:700, marginBottom:3, color }}>
+                  {ready ? '✅ Integração Meta ativa' : '⚙️ Integração Meta'}
+                </div>
+                <div style={{ fontSize:12, color:T.muted }}>{text}</div>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                {m?.ok && !m.subscribed && (
+                  <Btn onClick={() => checkMeta(true)} disabled={metaBusy}>{metaBusy ? 'Ligando…' : 'Ligar Página ao CRM'}</Btn>
+                )}
+                <Btn outline small onClick={() => checkMeta()} disabled={metaBusy}>
+                  <RefreshCw size={12}/> Verificar
+                </Btn>
+              </div>
+            </Card>
+          )
+        })()}
 
         {/* KPIs */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:14, marginBottom:14 }}>

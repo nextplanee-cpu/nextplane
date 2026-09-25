@@ -7,15 +7,14 @@
  * Variáveis de ambiente (Vercel):
  *   META_VERIFY_TOKEN        texto qualquer, igual ao configurado no app da Meta
  *   META_APP_SECRET          chave secreta do app (valida a assinatura)
- *   META_PAGE_ACCESS_TOKEN   token da Página Next plane com leads_retrieval
+ *   META_PAGE_ACCESS_TOKEN   token do Usuário do sistema (ou da Página) com leads_retrieval
  *   META_API_VERSION         opcional (padrão v23.0)
  *   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
  */
 import crypto from 'node:crypto'
 import { metaLeadToRow } from './_lib/leads.js'
+import { fetchLead } from './_lib/meta.js'
 import { dbConfigured, insertMetaLead } from './_lib/supabase.js'
-
-const GRAPH = () => `https://graph.facebook.com/${process.env.META_API_VERSION || 'v23.0'}`
 
 async function readRaw(req) {
   const chunks = []
@@ -30,15 +29,6 @@ function validSignature(raw, header) {
   const got = header.slice(7)
   return got.length === expected.length &&
     crypto.timingSafeEqual(Buffer.from(got), Buffer.from(expected))
-}
-
-async function fetchLead(leadgenId) {
-  const fields = 'id,created_time,field_data,form_id,ad_id,ad_name,adset_name,campaign_name,platform'
-  const url = `${GRAPH()}/${leadgenId}?fields=${fields}&access_token=${process.env.META_PAGE_ACCESS_TOKEN}`
-  const res = await fetch(url)
-  const data = await res.json()
-  if (!res.ok) throw new Error(`Graph API ${res.status}: ${JSON.stringify(data.error || data)}`)
-  return data
 }
 
 export default async function handler(req, res) {

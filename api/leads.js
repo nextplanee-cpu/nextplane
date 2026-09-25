@@ -6,16 +6,9 @@
  * POST  {lead}      → cria lead manual
  * PATCH ?id= {...}  → atualiza campos (estágio, temperatura, obs...)
  */
-import crypto from 'node:crypto'
+import { authorized } from './_lib/auth.js'
 import { sanitize } from './_lib/leads.js'
 import { dbConfigured, listLeads, insertLead, updateLead } from './_lib/supabase.js'
-
-function authorized(req) {
-  const expected = process.env.CRM_ACCESS_KEY || ''
-  const got = String(req.headers['x-crm-key'] || '')
-  if (!expected || got.length !== expected.length) return false
-  return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(expected))
-}
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
