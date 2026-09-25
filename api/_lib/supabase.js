@@ -34,10 +34,22 @@ export const insertLead = row =>
   request(TABLE, { method: 'POST', body: row, prefer: 'return=representation' })
 
 /* Lead da Meta: ignora duplicado (a Meta pode reenviar o mesmo webhook) sem sobrescrever o estágio */
-export const insertMetaLead = row =>
+const upsertMeta = row =>
   request(`${TABLE}?on_conflict=meta_lead_id`, {
     method: 'POST', body: row, prefer: 'resolution=ignore-duplicates,return=representation',
   })
+
+export async function insertMetaLead(row) {
+  try {
+    return await upsertMeta(row)
+  } catch (err) {
+    // Colunas novas (respostas/form_name) ainda não criadas no banco: salva as respostas nas observações
+    if (!/respostas|form_name/.test(err.message)) throw err
+    const { respostas = [], form_name, ...rest } = row
+    const texto = respostas.map(r => `${r.pergunta}: ${r.resposta}`).join(' | ')
+    return upsertMeta({ ...rest, obs: [form_name && `Formulário: ${form_name}`, texto].filter(Boolean).join(' | ') })
+  }
+}
 
 export const updateLead = (id, row) =>
   request(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {

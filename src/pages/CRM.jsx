@@ -1267,6 +1267,26 @@ CREATE TABLE activities (
                 </div>
               ))}
 
+              {/* Respostas do formulário (qualquer formulário de Lead Ads) */}
+              {Array.isArray(selected.respostas) && selected.respostas.length > 0 && (
+                <div style={{ marginTop:16 }}>
+                  <div style={{ fontSize:12, color:T.muted, marginBottom:8 }}>
+                    📝 Respostas do formulário{selected.form_name ? ` · ${selected.form_name}` : ''}
+                  </div>
+                  <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'4px 12px' }}>
+                    {selected.respostas.map((r, i) => (
+                      <div key={i} style={{ padding:'8px 0', borderBottom: i < selected.respostas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                        <div style={{ fontSize:11, color:T.muted }}>{r.pergunta}</div>
+                        <div style={{ fontSize:13, fontWeight:600 }}>{r.resposta || '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selected.obs && (
+                <div style={{ marginTop:12, fontSize:12, color:T.muted, lineHeight:1.5 }}>🗒️ {selected.obs}</div>
+              )}
+
               {/* Mover estágio */}
               <div style={{ margin:'16px 0 0' }}>
                 <div style={{ fontSize:12, color:T.muted, marginBottom:8 }}>Mover para estágio:</div>

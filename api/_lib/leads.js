@@ -77,10 +77,31 @@ function pick(map, ...keywords) {
   return key ? map[key] : ''
 }
 
+/* "qual_o_destino_da_sua_viagem?" → "Qual o destino da sua viagem?" */
+const pretty = s => {
+  const t = String(s ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/* Campos padrão da Meta vêm com nome em inglês */
+const STANDARD = {
+  full_name: 'Nome completo', first_name: 'Nome', last_name: 'Sobrenome', email: 'E-mail',
+  phone_number: 'Telefone', city: 'Cidade', state: 'Estado', zip_code: 'CEP', country: 'País',
+  date_of_birth: 'Data de nascimento', job_title: 'Cargo', company_name: 'Empresa',
+}
+
+/* Todas as perguntas e respostas do formulário, na ordem em que vieram */
+export function allAnswers(fieldData = []) {
+  return fieldData.map(f => ({
+    pergunta: STANDARD[f.name] || pretty(f.name),
+    resposta: (Array.isArray(f.values) ? f.values : [f.values]).filter(v => v != null).map(pretty).join(', '),
+  }))
+}
+
 /**
  * Lead da Graph API (GET /{leadgen_id}) → linha da tabela crm_leads.
  */
-export function metaLeadToRow(meta) {
+export function metaLeadToRow(meta, formName = '') {
   const f = fieldMap(meta.field_data)
   const dest         = parseDestino(pick(f, 'destino'))
   const pessoas      = parsePessoas(pick(f, 'pessoas'))
@@ -108,6 +129,8 @@ export function metaLeadToRow(meta) {
     adset_name:    meta.adset_name || '',
     ad_name:       meta.ad_name || '',
     form_id:       meta.form_id ? String(meta.form_id) : '',
+    form_name:     formName,
+    respostas:     allAnswers(meta.field_data),
     platform:      meta.platform || '',
     created_at:    meta.created_time ? new Date(meta.created_time).toISOString() : new Date().toISOString(),
   }

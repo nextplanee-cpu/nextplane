@@ -24,6 +24,8 @@ create table if not exists public.crm_leads (
   adset_name    text default '',
   ad_name       text default '',
   form_id       text default '',
+  form_name     text default '',
+  respostas     jsonb default '[]'::jsonb,   -- [{pergunta, resposta}] de qualquer formulário
   platform      text default '',             -- fb | ig
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()

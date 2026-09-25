@@ -39,6 +39,18 @@ export async function fetchLead(leadgenId) {
   return graph(`${leadgenId}?fields=${fields}`, { token: await pageToken() })
 }
 
+/* Nome do formulário (cache por execução); vazio se não der para ler */
+const formNames = new Map()
+export async function fetchFormName(formId) {
+  if (!formId) return ''
+  if (formNames.has(formId)) return formNames.get(formId)
+  try {
+    const { name = '' } = await graph(`${formId}?fields=name`, { token: await pageToken() })
+    formNames.set(formId, name)
+    return name
+  } catch { return '' }
+}
+
 export async function pageStatus() {
   const token = await pageToken()
   const page = await graph(`${PAGE_ID()}?fields=name`, { token })

@@ -13,7 +13,7 @@
  */
 import crypto from 'node:crypto'
 import { metaLeadToRow } from './_lib/leads.js'
-import { fetchLead } from './_lib/meta.js'
+import { fetchLead, fetchFormName } from './_lib/meta.js'
 import { dbConfigured, insertMetaLead } from './_lib/supabase.js'
 
 async function readRaw(req) {
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
         if (err.meta?.code === 100) { console.warn(`[meta-leads] lead ${id} ignorado: ${err.message}`); continue }
         throw err
       }
-      await insertMetaLead(metaLeadToRow(meta))
+      await insertMetaLead(metaLeadToRow(meta, await fetchFormName(meta.form_id)))
       console.log(`[meta-leads] lead ${id} salvo`)
     }
     return res.status(200).json({ ok: true, received: ids.length })
