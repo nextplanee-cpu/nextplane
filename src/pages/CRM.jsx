@@ -348,6 +348,22 @@ export default function CRM() {
     }
   }
 
+  /* ── Editar valor do lead ── */
+  const saveValue = (id, raw) => {
+    const value = Math.max(0, Math.round(Number(raw) || 0))
+    const prev = leads.find(l => l.id === id)?.value
+    if (value === prev) return
+    setLeads(p => p.map(l => l.id === id ? { ...l, value } : l))
+    if (selected?.id === id) setSelected(s => ({ ...s, value }))
+    if (mode === 'cloud') {
+      patchLead(id, { value }).catch(() => {
+        setLeads(p => p.map(l => l.id === id ? { ...l, value: prev } : l))
+        setSelected(s => s?.id === id ? { ...s, value: prev } : s)
+        alert('Não foi possível salvar o valor na nuvem.')
+      })
+    }
+  }
+
   /* ── Estilos comuns ── */
   const thS = { padding:'10px 12px', textAlign:'left', fontSize:11, color:T.muted,
     fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:T.borderN, whiteSpace:'nowrap' }
@@ -1248,7 +1264,16 @@ CREATE TABLE activities (
               {[
                 ['✈️ Destino',   selected.dest],
                 ['📁 Tipo',     selected.type],
-                ['💰 Valor',    fmtR(selected.value)],
+                ['💰 Valor',    (
+                  <input key={`${selected.id}-${selected.value}`} type="number" min="0" step="100"
+                    defaultValue={selected.value || ''} placeholder="0"
+                    onBlur={e => saveValue(selected.id, e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+                    title="Digite o valor e aperte Enter"
+                    style={{ width:130, textAlign:'right', background:'rgba(255,255,255,0.05)',
+                      border:T.borderN, borderRadius:6, padding:'4px 8px', color:T.gold,
+                      fontSize:13, fontWeight:600, fontFamily:'inherit' }}/>
+                )],
                 ['📲 Origem',   selected.source],
                 ['👤 Consultor',selected.consultor],
                 ...(selected.source === 'Meta Ads' ? [

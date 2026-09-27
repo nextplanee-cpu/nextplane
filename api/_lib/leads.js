@@ -47,9 +47,6 @@ export function parseInvestimento(v) {
   return String(v)
 }
 
-/* Valor estimado (R$) usado no pipeline — ponto médio de cada faixa */
-const VALOR_INVEST = { 'ate20': 15000, '20-30': 25000, '30-40': 35000, '40+': 45000 }
-
 /* ── Score 0-10 e temperatura ── */
 export function scoreLead({ investimento, dias, pessoas, dest }) {
   let score = 0
@@ -116,7 +113,7 @@ export function metaLeadToRow(meta, formName = '') {
     email:         pick(f, 'email', 'e-mail'),
     dest,
     type:          dest === 'Europa' ? 'Europa' : 'Internacional',
-    value:         VALOR_INVEST[investimento] ?? 0,
+    value:         0, // preenchido pelo consultor no CRM após a análise
     stage:         0,
     temp,
     score,

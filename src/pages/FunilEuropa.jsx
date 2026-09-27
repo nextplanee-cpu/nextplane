@@ -14,7 +14,6 @@ const isQuente = (a) =>
 const isQualificado = (a) => isQuente(a) && a.destino !== 'indeciso'
 
 /* ── Mapa investimento → valor estimado ── */
-const valorMap = { ate5k: 4000, '5a15k': 10000, '15kmais': 20000, naosei: 0 }
 
 /* ── Temperatura no CRM ── */
 const getTemp = (a, qualificado) => {
@@ -50,7 +49,7 @@ function salvarNoCRM({ nome, telefone, answers, labels, qualificado = false }) {
                 : answers.destino === 'caribe'    ? 'Internacional'
                 : answers.destino === 'america_sul' ? 'América do Sul'
                 : 'Internacional',
-      value:     valorMap[answers.investimento] || 0,
+      value:     0, // preenchido pelo consultor no CRM após a análise
       stage:     0,
       temp:      getTemp(answers, qualificado),
       source:    qualificado ? 'Landing Europa · WhatsApp' : 'Landing Europa',
