@@ -55,3 +55,6 @@ export const updateLead = (id, row) =>
   request(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH', body: { ...row, updated_at: new Date().toISOString() }, prefer: 'return=representation',
   })
+
+export const deleteLead = id =>
+  request(`${TABLE}?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', prefer: 'return=representation' })

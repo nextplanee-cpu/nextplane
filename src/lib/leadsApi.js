@@ -48,6 +48,7 @@ export function rowToLead(r) {
 export const fetchLeads  = key => call('GET', { key }).then(rows => rows.map(rowToLead))
 export const createLead  = lead => call('POST', { body: lead }).then(rowToLead)
 export const patchLead   = (id, fields) => call('PATCH', { query: `?id=${encodeURIComponent(id)}`, body: fields }).then(rowToLead)
+export const removeLead  = id => call('DELETE', { query: `?id=${encodeURIComponent(id)}` })
 
 /* Integração Meta: status (GET) e ligar app à Página (POST) */
 async function metaSetup(method) {

@@ -5,10 +5,10 @@ import {
   MessageCircle, ChevronRight, LogOut, Bell,
   Phone, Mail, MapPin, Calendar, Star, TrendingUp,
   CheckCircle2, AlertCircle, Clock, Filter,
-  Cloud, CloudOff, Megaphone, RefreshCw
+  Cloud, CloudOff, Megaphone, RefreshCw, Trash2
 } from 'lucide-react'
 import {
-  getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, waLink,
+  getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, removeLead, waLink,
   metaStatus, metaSubscribe,
 } from '../lib/leadsApi'
 
@@ -362,6 +362,19 @@ export default function CRM() {
         alert('Não foi possível salvar o valor na nuvem.')
       })
     }
+  }
+
+  /* ── Excluir lead ── */
+  const deleteLead = async lead => {
+    if (!window.confirm(`Excluir o lead "${lead.name}"? Isso não pode ser desfeito.`)) return
+    if (mode === 'cloud') {
+      try { await removeLead(lead.id) } catch {
+        alert('Não foi possível excluir o lead na nuvem.')
+        return
+      }
+    }
+    setLeads(p => p.filter(l => l.id !== lead.id))
+    setSelected(null)
   }
 
   /* ── Estilos comuns ── */
@@ -1340,6 +1353,13 @@ CREATE TABLE activities (
                   display:'flex', alignItems:'center', gap:6 }}>
                   <MessageCircle size={14}/> WhatsApp
                 </a>
+                <button onClick={() => deleteLead(selected)} title="Excluir lead"
+                  style={{ background:'#EF444415', color:'#EF4444',
+                  border:'1px solid #EF444430', borderRadius:8, padding:'9px 14px',
+                  cursor:'pointer', fontWeight:700, fontSize:13, fontFamily:'inherit',
+                  display:'flex', alignItems:'center', gap:6 }}>
+                  <Trash2 size={14}/> Excluir
+                </button>
               </div>
             </div>
           </div>

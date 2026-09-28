@@ -5,10 +5,11 @@
  * GET               → todos os leads
  * POST  {lead}      → cria lead manual
  * PATCH ?id= {...}  → atualiza campos (estágio, temperatura, obs...)
+ * DELETE ?id=       → exclui o lead
  */
 import { authorized } from './_lib/auth.js'
 import { sanitize } from './_lib/leads.js'
-import { dbConfigured, listLeads, insertLead, updateLead } from './_lib/supabase.js'
+import { dbConfigured, listLeads, insertLead, updateLead, deleteLead } from './_lib/supabase.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -33,6 +34,13 @@ export default async function handler(req, res) {
       if (!id || !Object.keys(row).length) return res.status(400).json({ error: 'bad_request' })
       const [updated] = await updateLead(id, row)
       return res.status(200).json(updated)
+    }
+    if (req.method === 'DELETE') {
+      const id = req.query.id
+      if (!id) return res.status(400).json({ error: 'bad_request' })
+      const deleted = await deleteLead(id)
+      if (!deleted?.length) return res.status(404).json({ error: 'not_found' })
+      return res.status(200).json({ ok: true })
     }
     return res.status(405).json({ error: 'method_not_allowed' })
   } catch (err) {
