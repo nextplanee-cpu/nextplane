@@ -504,7 +504,7 @@ export default function CRM() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div>
           <h2 style={{ fontSize:20, fontWeight:700, margin:0 }}>Pipeline Comercial</h2>
-          <p style={{ color:T.muted, fontSize:13, margin:'4px 0 0' }}>13 estágios · {leads.length} leads</p>
+          <p style={{ color:T.muted, fontSize:13, margin:'4px 0 0' }}>{STAGES.length} estágios · {leads.length} leads</p>
         </div>
         <Btn onClick={() => setShowNew(true)}><Plus size={14}/> Novo Lead</Btn>
       </div>
