@@ -12,7 +12,7 @@ import {
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText,
 } from '../../lib/assessoriasApi'
-import { ORIGENS_BR, DESTINOS } from './cidades'
+import { ORIGENS_BR, DESTINOS, AEROPORTOS } from './cidades'
 
 /* ─── Design tokens (mesmos do CRM) ─────────────────── */
 const T = {
@@ -42,9 +42,10 @@ const STEPS = [
     goal:'Estruturar a viagem antes das emissões.', out:'Roteiro prévio aprovado pelo cliente.',
     checks:['Destinos definidos','Ordem dos destinos','Datas aproximadas','Deslocamentos entre cidades','Tempo em cada destino','Roteiro prévio aprovado pelo cliente'] },
   { k:'aereo', icon:'✈️', name:'Emissão de passagem aérea', short:'Aéreo', color:'#3B82F6', kind:'items', unit:'trechos emitidos', add:'trecho',
-    statuses:AEREO_ST, done:['Emitido'], blank:{ trecho:'', data:'', cia:'', voo:'', horario:'', valor:'', localizador:'', link:'', status:'Pendente' },
+    statuses:AEREO_ST, done:['Emitido'], blank:{ de:'', para:'', data:'', cia:'', voo:'', horario:'', valor:'', localizador:'', link:'', status:'Pendente' },
     fields:[
-      { k:'trecho', l:'Trecho', ph:'GRU → LIS', w:2 }, { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Cia', ph:'TAP' },
+      { k:'de', l:'Origem', t:'airport', ph:'Aeroporto ou sigla — ex.: BSB', w:2 }, { k:'para', l:'Destino', t:'airport', ph:'Aeroporto ou sigla — ex.: LIS', w:2 },
+      { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Cia', ph:'TAP' },
       { k:'voo', l:'Nº do voo', ph:'TP 88' }, { k:'horario', l:'Horário', t:'time' }, { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
@@ -89,7 +90,16 @@ const CUSTOS  = ['aereo','hotel','seguro','exp','internet']
 
 /* Fichas criadas na versão anterior: transportes passam para "Ingressos e trem" */
 const TRANSP_MAP = { 'Pendente':'Definido', 'Cotado':'Cotado', 'Aguardando cliente':'Aprovado', 'Reservado':'Comprado', 'Voucher anexado':'Voucher anexado' }
+/* "lis" → "Lisboa (LIS)" quando a sigla está na lista */
+const aeroporto = x => { const up = String(x || '').trim().toUpperCase(); if (!up) return ''; const hit = AEROPORTOS.flatMap(g => g.cidades).find(c => c.nome.endsWith(`(${up})`)); return hit ? hit.nome : up }
+const trechoDe = v => (v.de || v.para ? `${v.de || '?'} → ${v.para || '?'}` : v.trecho || '')
 const migrate = a => {
+  // trechos antigos em texto livre ("GRU → LIS") viram origem/destino
+  if ((a.aereo || []).some(v => v.trecho && !v.de && !v.para)) a = { ...a, aereo: a.aereo.map(v => {
+    if (!v.trecho || v.de || v.para) return v
+    const [de = '', para = ''] = v.trecho.split(/\s*(?:→|->|-|\/|>)\s*/)
+    return { ...v, de: aeroporto(de), para: aeroporto(para) }
+  }) }
   if (!a.transp?.length) return a
   const moved = a.transp.map(t => ({ id:t.id, tipo:['Trem','Ônibus','Transfer'].includes(t.tipo) ? t.tipo : 'Outro',
     nome:[t.origem, t.destino].filter(Boolean).join(' → '), cidade:'', data:t.data || '', hora:t.hora || '',
@@ -196,7 +206,7 @@ function fillTemplate(txt, a) {
     cliente: a.cliente || '', primeiro_nome: String(a.cliente || '').trim().split(/\s+/)[0] || '',
     origem: a.origem || '', destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
     dias: daysTo(a.inicio) ?? '—',
-    localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${v.trecho || 'Voo'}${v.data ? ` (${fmtD(v.data)})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
+    localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${trechoDe(v) || 'Voo'}${v.voo ? ` · ${v.voo}` : ''}${v.data ? ` (${fmtD(v.data)})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
     roteiro: (a.roteiro_dias || []).filter(d => d.programacao || d.cidade).map((d, i) => `*Dia ${i + 1}${d.data ? ` — ${fmtD(d.data)}` : ''}${d.cidade ? ` · ${d.cidade}` : ''}*\n${d.programacao || ''}`).join('\n\n') || '[roteiro]',
     hoteis: (a.hotel || []).filter(h => h.hotel).map(h => `🏨 ${h.cidade ? `${h.cidade} — ` : ''}${h.hotel} (${fmtD(h.checkin)} a ${fmtD(h.checkout)})`).join('\n') || '[hotéis]',
   }
@@ -304,7 +314,7 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
       {open && (
         <div className="ass-scroll" style={{ position:'absolute', zIndex:50, left:0, right:0, top:'100%', marginTop:4, maxHeight:260, overflowY:'auto',
           background:'#0d1628', border:T.border, borderRadius:10, boxShadow:'0 12px 30px rgba(0,0,0,0.5)', padding:6 }}>
-          {q.trim() && !lista.some(g => g.cidades.some(c => semAcento(c.nome) === busca)) && (
+          {q.trim() && !lista.some(g => g.cidades.some(c => semAcento(c.nome) === busca || c.nome.toUpperCase().endsWith(`(${q.trim().toUpperCase()})`))) && (
             <div onMouseDown={e => { e.preventDefault(); escolher(q) }}
               style={{ padding:'7px 10px', borderRadius:6, cursor:'pointer', fontSize:13, color:T.gold }}>
               + Usar “{q.trim()}”
@@ -961,7 +971,8 @@ function Items({ s, a, onChange }) {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
               {s.fields.map(f => (
                 <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
-                  {f.t === 'select' ? <Select label={f.l} value={it[f.k]} opts={f.opts} onChange={v => setItem(i, f.k, v)}/>
+                  {f.t === 'airport' ? <CityPicker label={f.l} value={it[f.k]} groups={AEROPORTOS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
+                    : f.t === 'select' ? <Select label={f.l} value={it[f.k]} opts={f.opts} onChange={v => setItem(i, f.k, v)}/>
                     : f.t === 'check' ? (
                       <div><Label>{f.l}</Label>
                         <label style={{ ...inputS, display:'flex', gap:8, alignItems:'center', cursor:'pointer' }}>
@@ -976,8 +987,8 @@ function Items({ s, a, onChange }) {
       })}
       <div><Btn outline small onClick={add}><Plus size={13}/> Adicionar {s.add || 'item'}</Btn></div>
       {s.k === 'aereo' && items.length > 0 && (
-        <div style={{ fontSize:12, color:T.muted }}>
-          <Plane size={12} style={{ verticalAlign:-2 }}/> Total das passagens: {fmtR(items.reduce((t, v) => t + (Number(v.valor) || 0), 0))}
+        <div style={{ fontSize:12, color:T.muted, display:'flex', alignItems:'center', gap:6 }}>
+          <Plane size={12}/> Total das passagens: {fmtR(items.reduce((t, v) => t + (Number(v.valor) || 0), 0))}
         </div>
       )}
     </div>

@@ -65,3 +65,51 @@ export const DESTINOS = parse([
     'Sydney/Austrália, Melbourne/Austrália, Gold Coast/Austrália, Auckland/Nova Zelândia, Queenstown/Nova Zelândia, ' +
     'Taiti/Polinésia Francesa, Bora Bora/Polinésia Francesa, Fiji/Fiji'],
 ])
+
+/* Aeroportos para os trechos aéreos: Brasil + internacionais (Cidade (IATA)/País) */
+export const AEROPORTOS = [
+  { grupo:'Brasil', cidades:[
+    ...ORIGENS_BR[0].cidades,
+    ...parse([['', 'Fernando de Noronha (FEN)/PE, Jericoacoara (JJD)/CE, Bonito (BYO)/MS, Petrolina (PNZ)/PE, Imperatriz (IMP)/MA, Santarém (STM)/PA, Cabo Frio (CFB)/RJ']])[0].cidades,
+  ] },
+  ...parse([
+    ['Europa',
+      'Lisboa (LIS)/Portugal, Porto (OPO)/Portugal, Faro (FAO)/Portugal, Funchal – Madeira (FNC)/Portugal, Ponta Delgada – Açores (PDL)/Portugal, ' +
+      'Madri (MAD)/Espanha, Barcelona (BCN)/Espanha, Sevilha (SVQ)/Espanha, Málaga (AGP)/Espanha, Valência (VLC)/Espanha, Ibiza (IBZ)/Espanha, Palma de Mallorca (PMI)/Espanha, Bilbao (BIO)/Espanha, ' +
+      'Paris (CDG)/França, Paris (ORY)/França, Nice (NCE)/França, Lyon (LYS)/França, Marselha (MRS)/França, Bordeaux (BOD)/França, ' +
+      'Londres (LHR)/Inglaterra, Londres (LGW)/Inglaterra, Londres (STN)/Inglaterra, Edimburgo (EDI)/Escócia, Dublin (DUB)/Irlanda, Amsterdã (AMS)/Holanda, Bruxelas (BRU)/Bélgica, ' +
+      'Roma (FCO)/Itália, Milão (MXP)/Itália, Milão (LIN)/Itália, Veneza (VCE)/Itália, Florença (FLR)/Itália, Pisa (PSA)/Itália, Nápoles (NAP)/Itália, Bolonha (BLQ)/Itália, ' +
+      'Catânia (CTA)/Itália, Palermo (PMO)/Itália, Bari (BRI)/Itália, ' +
+      'Zurique (ZRH)/Suíça, Genebra (GVA)/Suíça, Viena (VIE)/Áustria, Munique (MUC)/Alemanha, Frankfurt (FRA)/Alemanha, Berlim (BER)/Alemanha, Hamburgo (HAM)/Alemanha, ' +
+      'Praga (PRG)/Tchéquia, Budapeste (BUD)/Hungria, Cracóvia (KRK)/Polônia, Varsóvia (WAW)/Polônia, ' +
+      'Copenhague (CPH)/Dinamarca, Estocolmo (ARN)/Suécia, Oslo (OSL)/Noruega, Tromsø (TOS)/Noruega, Helsinque (HEL)/Finlândia, Rovaniemi (RVN)/Finlândia, Reykjavik (KEF)/Islândia, ' +
+      'Atenas (ATH)/Grécia, Santorini (JTR)/Grécia, Mykonos (JMK)/Grécia, Heraklion – Creta (HER)/Grécia, Dubrovnik (DBV)/Croácia, Split (SPU)/Croácia, ' +
+      'Istambul (IST)/Turquia, Capadócia (NAV)/Turquia, Malta (MLA)/Malta'],
+    ['Estados Unidos e Canadá',
+      'Nova York (JFK)/EUA, Nova York (EWR)/EUA, Nova York (LGA)/EUA, Miami (MIA)/EUA, Orlando (MCO)/EUA, Fort Lauderdale (FLL)/EUA, ' +
+      'Los Angeles (LAX)/EUA, San Francisco (SFO)/EUA, Las Vegas (LAS)/EUA, Chicago (ORD)/EUA, Washington (IAD)/EUA, Boston (BOS)/EUA, ' +
+      'Atlanta (ATL)/EUA, Dallas (DFW)/EUA, Houston (IAH)/EUA, Denver (DEN)/EUA, Nova Orleans (MSY)/EUA, San Diego (SAN)/EUA, ' +
+      'Honolulu (HNL)/EUA, Maui (OGG)/EUA, Aspen (ASE)/EUA, Toronto (YYZ)/Canadá, Vancouver (YVR)/Canadá, Montreal (YUL)/Canadá, Calgary (YYC)/Canadá'],
+    ['México, Caribe e América Central',
+      'Cancún (CUN)/México, Cidade do México (MEX)/México, Los Cabos (SJD)/México, Punta Cana (PUJ)/Rep. Dominicana, Aruba (AUA)/Aruba, ' +
+      'Curaçao (CUR)/Curaçao, Nassau (NAS)/Bahamas, Turks e Caicos (PLS)/Turks e Caicos, Montego Bay (MBJ)/Jamaica, San Juan (SJU)/Porto Rico, ' +
+      'Cidade do Panamá (PTY)/Panamá, San José (SJO)/Costa Rica'],
+    ['América do Sul',
+      'Buenos Aires (EZE)/Argentina, Buenos Aires (AEP)/Argentina, Bariloche (BRC)/Argentina, Mendoza (MDZ)/Argentina, Ushuaia (USH)/Argentina, El Calafate (FTE)/Argentina, ' +
+      'Santiago (SCL)/Chile, Calama – Atacama (CJC)/Chile, Puerto Natales (PNT)/Chile, Punta Arenas (PUQ)/Chile, ' +
+      'Lima (LIM)/Peru, Cusco (CUZ)/Peru, Montevidéu (MVD)/Uruguai, Punta del Este (PDP)/Uruguai, ' +
+      'Bogotá (BOG)/Colômbia, Medellín (MDE)/Colômbia, Cartagena (CTG)/Colômbia, San Andrés (ADZ)/Colômbia, ' +
+      'Quito (UIO)/Equador, Guayaquil (GYE)/Equador, Galápagos (GPS)/Equador, Assunção (ASU)/Paraguai, La Paz (LPB)/Bolívia'],
+    ['Oriente Médio e África',
+      'Dubai (DXB)/Emirados Árabes, Abu Dhabi (AUH)/Emirados Árabes, Doha (DOH)/Catar, Tel Aviv (TLV)/Israel, Amã (AMM)/Jordânia, ' +
+      'Cairo (CAI)/Egito, Luxor (LXR)/Egito, Marrakech (RAK)/Marrocos, Casablanca (CMN)/Marrocos, Cidade do Cabo (CPT)/África do Sul, ' +
+      'Joanesburgo (JNB)/África do Sul, Zanzibar (ZNZ)/Tanzânia, Seychelles (SEZ)/Seychelles, Maurício (MRU)/Maurício, Adis Abeba (ADD)/Etiópia, Luanda (LAD)/Angola'],
+    ['Ásia',
+      'Tóquio (HND)/Japão, Tóquio (NRT)/Japão, Osaka (KIX)/Japão, Seul (ICN)/Coreia do Sul, Pequim (PEK)/China, Xangai (PVG)/China, Hong Kong (HKG)/China, ' +
+      'Singapura (SIN)/Singapura, Bangkok (BKK)/Tailândia, Phuket (HKT)/Tailândia, Chiang Mai (CNX)/Tailândia, Bali (DPS)/Indonésia, Malé – Maldivas (MLE)/Maldivas, ' +
+      'Hanói (HAN)/Vietnã, Ho Chi Minh (SGN)/Vietnã, Siem Reap (SAI)/Camboja, Nova Délhi (DEL)/Índia, Mumbai (BOM)/Índia, Colombo (CMB)/Sri Lanka, Kuala Lumpur (KUL)/Malásia'],
+    ['Oceania',
+      'Sydney (SYD)/Austrália, Melbourne (MEL)/Austrália, Gold Coast (OOL)/Austrália, Auckland (AKL)/Nova Zelândia, Queenstown (ZQN)/Nova Zelândia, ' +
+      'Papeete – Taiti (PPT)/Polinésia Francesa, Bora Bora (BOB)/Polinésia Francesa, Nadi – Fiji (NAN)/Fiji'],
+  ]),
+]
