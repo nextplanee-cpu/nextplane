@@ -42,11 +42,10 @@ const STEPS = [
     goal:'Estruturar a viagem antes das emissões.', out:'Roteiro prévio aprovado pelo cliente.',
     checks:['Destinos definidos','Ordem dos destinos','Datas aproximadas','Deslocamentos entre cidades','Tempo em cada destino','Roteiro prévio aprovado pelo cliente'] },
   { k:'aereo', icon:'✈️', name:'Emissão de passagem aérea', short:'Aéreo', color:'#3B82F6', kind:'items', unit:'trechos emitidos', add:'trecho',
-    statuses:AEREO_ST, done:['Emitido'], blank:{ trecho:'', data:'', cia:'', tipo:'Milhas', programa:'', milhas:'', taxas:'', valor:'', localizador:'', link:'', status:'Pendente' },
+    statuses:AEREO_ST, done:['Emitido'], blank:{ trecho:'', data:'', cia:'', voo:'', horario:'', valor:'', localizador:'', link:'', status:'Pendente' },
     fields:[
       { k:'trecho', l:'Trecho', ph:'GRU → LIS', w:2 }, { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Cia', ph:'TAP' },
-      { k:'tipo', l:'Pagamento', t:'select', opts:['Milhas','Pagante'] }, { k:'programa', l:'Programa', ph:'Smiles, Azul…' },
-      { k:'milhas', l:'Milhas', t:'number' }, { k:'taxas', l:'Taxas R$', t:'number' }, { k:'valor', l:'Valor R$', t:'number' },
+      { k:'voo', l:'Nº do voo', ph:'TP 88' }, { k:'horario', l:'Horário', t:'time' }, { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
   { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
@@ -118,7 +117,7 @@ const TEMPLATES = {
   ],
   aereo: [
     ['Solicitação de informações', '{primeiro_nome}, para buscar as melhores opções de voo preciso confirmar: datas flexíveis? Preferência de companhia ou horário? Bagagem despachada para todos?'],
-    ['Envio de opções', '{primeiro_nome}, separei as melhores opções de voo para {destino}:\n\n[opções]\n\nQual delas prefere? As tarifas em milhas podem mudar, então o ideal é aprovar o quanto antes.'],
+    ['Envio de opções', '{primeiro_nome}, separei as melhores opções de voo para {destino}:\n\n[opções]\n\nQual delas prefere? As tarifas podem mudar, então o ideal é aprovar o quanto antes.'],
     ['Aprovação da emissão', '{primeiro_nome}, posso seguir com a emissão da opção aprovada? Assim que confirmar eu emito e te envio o localizador.'],
     ['Confirmação de emissão', 'Passagens emitidas com sucesso! ✅ {primeiro_nome}, sua viagem para {destino} está com os voos garantidos.'],
     ['Envio de localizador', '{primeiro_nome}, seguem os localizadores dos seus voos:\n\n{localizadores}\n\nGuarde esta mensagem 😉'],
@@ -709,15 +708,14 @@ const PAX_FIELDS = [
   { k:'passaporte', l:'Validade do passaporte', t:'date' },
   { k:'telefone', l:'Telefone', ph:'11999999999' },
   { k:'email', l:'E-mail' },
-  { k:'fidelidade', l:'Programas de fidelidade', ph:'Smiles 123… · LATAM Pass 456…', w:2 },
   { k:'obs', l:'Observações', ph:'Assento, alimentação, necessidades especiais…', w:2 },
 ]
-const novoPax = () => ({ id:uid(), nome:'', cpf:'', nascimento:'', sexo:'', nacionalidade:'Brasileira', passaporte_num:'', passaporte:'', telefone:'', email:'', fidelidade:'', obs:'' })
+const novoPax = () => ({ id:uid(), nome:'', cpf:'', nascimento:'', sexo:'', nacionalidade:'Brasileira', passaporte_num:'', passaporte:'', telefone:'', email:'', obs:'' })
 const paxTexto = p => [
   `Nome: ${p.nome || '—'}`, p.cpf && `CPF: ${p.cpf}`, p.nascimento && `Nascimento: ${fmtD(p.nascimento)}/${p.nascimento.slice(0, 4)}`,
   p.sexo && `Sexo: ${p.sexo}`, p.nacionalidade && `Nacionalidade: ${p.nacionalidade}`,
   p.passaporte_num && `Passaporte: ${p.passaporte_num}${p.passaporte ? ` (validade ${fmtD(p.passaporte)}/${p.passaporte.slice(0, 4)})` : ''}`,
-  p.telefone && `Telefone: ${p.telefone}`, p.email && `E-mail: ${p.email}`, p.fidelidade && `Fidelidade: ${p.fidelidade}`, p.obs && `Obs.: ${p.obs}`,
+  p.telefone && `Telefone: ${p.telefone}`, p.email && `E-mail: ${p.email}`, p.obs && `Obs.: ${p.obs}`,
 ].filter(Boolean).join('\n')
 
 function Passageiros({ list = [], setList, compact }) {
@@ -763,10 +761,7 @@ function Passageiros({ list = [], setList, compact }) {
 
 /* ─── Visão geral: dados, viajantes, próxima ação, histórico ── */
 function Geral({ a, set, onChange }) {
-  const aereo = a.aereo || []
-  const milhas = aereo.reduce((s, v) => s + (Number(v.milhas) || 0), 0)
-  const taxas  = aereo.reduce((s, v) => s + (Number(v.taxas) || 0), 0)
-  const custos = CUSTOS.reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0) + taxas
+  const custos = CUSTOS.reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0)
 
   return (
     <div style={{ display:'grid', gap:14 }}>
@@ -779,8 +774,8 @@ function Geral({ a, set, onChange }) {
       </Card>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
-        {[['Valor da assessoria', fmtR(a.valor), T.gold], ['Milhas utilizadas', milhas.toLocaleString('pt-BR'), T.info],
-          ['Taxas de emissão', fmtR(taxas), T.warn], ['Custos lançados', fmtR(custos), T.muted]].map(([l, v, c]) => (
+        {[['Valor da assessoria', fmtR(a.valor), T.gold], ['Custos lançados', fmtR(custos), T.muted],
+          ['Passageiros', `${(a.passageiros || []).length} de ${a.viajantes || '?'}`, T.info]].map(([l, v, c]) => (
           <Card key={l} style={{ padding:14 }}>
             <div style={{ fontSize:18, fontWeight:700, color:c }}>{v}</div>
             <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>{l}</div>
@@ -982,9 +977,7 @@ function Items({ s, a, onChange }) {
       <div><Btn outline small onClick={add}><Plus size={13}/> Adicionar {s.add || 'item'}</Btn></div>
       {s.k === 'aereo' && items.length > 0 && (
         <div style={{ fontSize:12, color:T.muted }}>
-          <Plane size={12} style={{ verticalAlign:-2 }}/> Total: {items.reduce((t, v) => t + (Number(v.milhas) || 0), 0).toLocaleString('pt-BR')} milhas
-          · {fmtR(items.reduce((t, v) => t + (Number(v.taxas) || 0), 0))} em taxas
-          · {fmtR(items.reduce((t, v) => t + (Number(v.valor) || 0), 0))} pagante
+          <Plane size={12} style={{ verticalAlign:-2 }}/> Total das passagens: {fmtR(items.reduce((t, v) => t + (Number(v.valor) || 0), 0))}
         </div>
       )}
     </div>
