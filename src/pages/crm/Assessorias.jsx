@@ -303,7 +303,7 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
         )}
       </div>
       {open && (
-        <div className="crm-scroll" style={{ position:'absolute', zIndex:50, left:0, right:0, top:'100%', marginTop:4, maxHeight:260, overflowY:'auto',
+        <div className="ass-scroll" style={{ position:'absolute', zIndex:50, left:0, right:0, top:'100%', marginTop:4, maxHeight:260, overflowY:'auto',
           background:'#0d1628', border:T.border, borderRadius:10, boxShadow:'0 12px 30px rgba(0,0,0,0.5)', padding:6 }}>
           {q.trim() && !lista.some(g => g.cidades.some(c => semAcento(c.nome) === busca)) && (
             <div onMouseDown={e => { e.preventDefault(); escolher(q) }}
@@ -430,6 +430,13 @@ export default function Assessorias({ mode = 'local' }) {
 
   return (
     <div>
+      <style>{`
+        .ass-scroll { scrollbar-width:auto; scrollbar-color:rgba(212,175,55,0.6) rgba(255,255,255,0.05); }
+        .ass-scroll::-webkit-scrollbar { width:14px; }
+        .ass-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,0.04); border-radius:8px; }
+        .ass-scroll::-webkit-scrollbar-thumb { background:rgba(212,175,55,0.55); border-radius:8px; border:3px solid transparent; background-clip:padding-box; min-height:48px; }
+        .ass-scroll::-webkit-scrollbar-thumb:hover { background:rgba(212,175,55,0.9); border:3px solid transparent; background-clip:padding-box; }
+      `}</style>
       {err === 'table_missing' ? <TableMissing/> : err && (
         <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', color:T.err,
           borderRadius:10, padding:'10px 14px', fontSize:13, marginBottom:14 }}>{err}</div>
@@ -1034,7 +1041,7 @@ function NewModal({ onClose, onSave }) {
   return (
     <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex',
       alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
-      <div onClick={e => e.stopPropagation()} className="crm-scroll"
+      <div onClick={e => e.stopPropagation()} className="ass-scroll"
         style={{ background:T.card, borderRadius:14, padding:24, width:680, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', border:T.border }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
           <div style={{ fontSize:18, fontWeight:700 }}>🧳 Nova assessoria</div>
