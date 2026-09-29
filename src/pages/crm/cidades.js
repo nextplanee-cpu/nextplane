@@ -113,3 +113,33 @@ export const AEROPORTOS = [
       'Papeete – Taiti (PPT)/Polinésia Francesa, Bora Bora (BOB)/Polinésia Francesa, Nadi – Fiji (NAN)/Fiji'],
   ]),
 ]
+
+/* Companhias aéreas para os trechos: Companhia (IATA)/País */
+export const CIAS = parse([
+  ['Brasil',
+    'LATAM (LA)/Brasil, GOL (G3)/Brasil, Azul (AD)/Brasil, Voepass (2Z)/Brasil'],
+  ['América do Sul e Central',
+    'Aerolíneas Argentinas (AR)/Argentina, Sky Airline (H2)/Chile, JetSMART (JA)/Chile, Avianca (AV)/Colômbia, ' +
+    'Copa Airlines (CM)/Panamá, Paranair (ZP)/Paraguai, Boliviana de Aviación (OB)/Bolívia, Arajet (DM)/Rep. Dominicana'],
+  ['América do Norte',
+    'American Airlines (AA)/EUA, Delta Air Lines (DL)/EUA, United Airlines (UA)/EUA, JetBlue (B6)/EUA, Southwest (WN)/EUA, ' +
+    'Alaska Airlines (AS)/EUA, Spirit (NK)/EUA, Hawaiian Airlines (HA)/EUA, Air Canada (AC)/Canadá, WestJet (WS)/Canadá, ' +
+    'Aeroméxico (AM)/México, Volaris (Y4)/México'],
+  ['Europa',
+    'TAP Air Portugal (TP)/Portugal, Iberia (IB)/Espanha, Air Europa (UX)/Espanha, Vueling (VY)/Espanha, Volotea (V7)/Espanha, ' +
+    'Air France (AF)/França, Transavia (HV)/Holanda, KLM (KL)/Holanda, Lufthansa (LH)/Alemanha, Eurowings (EW)/Alemanha, Condor (DE)/Alemanha, ' +
+    'Swiss (LX)/Suíça, Edelweiss (WK)/Suíça, Austrian Airlines (OS)/Áustria, Brussels Airlines (SN)/Bélgica, ' +
+    'British Airways (BA)/Inglaterra, Virgin Atlantic (VS)/Inglaterra, easyJet (U2)/Inglaterra, Aer Lingus (EI)/Irlanda, Ryanair (FR)/Irlanda, ' +
+    'ITA Airways (AZ)/Itália, SAS (SK)/Escandinávia, Norwegian (DY)/Noruega, Finnair (AY)/Finlândia, Icelandair (FI)/Islândia, ' +
+    'LOT Polish (LO)/Polônia, Wizz Air (W6)/Hungria, Aegean (A3)/Grécia, Turkish Airlines (TK)/Turquia'],
+  ['Oriente Médio e África',
+    'Emirates (EK)/Emirados Árabes, Etihad (EY)/Emirados Árabes, Qatar Airways (QR)/Catar, Saudia (SV)/Arábia Saudita, ' +
+    'El Al (LY)/Israel, Royal Jordanian (RJ)/Jordânia, EgyptAir (MS)/Egito, Royal Air Maroc (AT)/Marrocos, ' +
+    'Ethiopian Airlines (ET)/Etiópia, South African Airways (SA)/África do Sul, TAAG Angola (DT)/Angola, Kenya Airways (KQ)/Quênia'],
+  ['Ásia e Oceania',
+    'Singapore Airlines (SQ)/Singapura, Cathay Pacific (CX)/Hong Kong, Japan Airlines (JL)/Japão, ANA (NH)/Japão, ' +
+    'Korean Air (KE)/Coreia do Sul, Asiana (OZ)/Coreia do Sul, Thai Airways (TG)/Tailândia, Air China (CA)/China, ' +
+    'China Eastern (MU)/China, China Southern (CZ)/China, Air India (AI)/Índia, Vietnam Airlines (VN)/Vietnã, ' +
+    'Malaysia Airlines (MH)/Malásia, Garuda Indonesia (GA)/Indonésia, Philippine Airlines (PR)/Filipinas, ' +
+    'Qantas (QF)/Austrália, Virgin Australia (VA)/Austrália, Air New Zealand (NZ)/Nova Zelândia, Air Tahiti Nui (TN)/Polinésia Francesa, Fiji Airways (FJ)/Fiji'],
+])

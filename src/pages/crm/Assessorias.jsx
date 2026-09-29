@@ -12,7 +12,7 @@ import {
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText,
 } from '../../lib/assessoriasApi'
-import { ORIGENS_BR, DESTINOS, AEROPORTOS } from './cidades'
+import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
 
 /* ─── Design tokens (mesmos do CRM) ─────────────────── */
 const T = {
@@ -45,7 +45,7 @@ const STEPS = [
     statuses:AEREO_ST, done:['Emitido'], blank:{ de:'', para:'', data:'', cia:'', voo:'', horario:'', valor:'', localizador:'', link:'', status:'Pendente' },
     fields:[
       { k:'de', l:'Origem', t:'airport', ph:'Aeroporto ou sigla — ex.: BSB', w:2 }, { k:'para', l:'Destino', t:'airport', ph:'Aeroporto ou sigla — ex.: LIS', w:2 },
-      { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Cia', ph:'TAP' },
+      { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Companhia aérea', t:'airline', ph:'Companhia ou sigla — ex.: TAP, TP', w:2 },
       { k:'voo', l:'Nº do voo', ph:'TP 88' }, { k:'horario', l:'Horário', t:'time' }, { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
@@ -92,13 +92,23 @@ const CUSTOS  = ['aereo','hotel','seguro','exp','internet']
 const TRANSP_MAP = { 'Pendente':'Definido', 'Cotado':'Cotado', 'Aguardando cliente':'Aprovado', 'Reservado':'Comprado', 'Voucher anexado':'Voucher anexado' }
 /* "lis" → "Lisboa (LIS)" quando a sigla está na lista */
 const aeroporto = x => { const up = String(x || '').trim().toUpperCase(); if (!up) return ''; const hit = AEROPORTOS.flatMap(g => g.cidades).find(c => c.nome.endsWith(`(${up})`)); return hit ? hit.nome : up }
+const semAc = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+const ciaDe = x => {
+  const t = semAc(x); if (!t || /\([a-z0-9]{2}\)$/.test(t)) return x || ''
+  const hit = CIAS.flatMap(g => g.cidades).find(c => semAc(c.nome).endsWith(`(${t})`) || semAc(c.nome).startsWith(t))
+  return hit ? hit.nome : x
+}
 const trechoDe = v => (v.de || v.para ? `${v.de || '?'} → ${v.para || '?'}` : v.trecho || '')
 const migrate = a => {
   // trechos antigos em texto livre ("GRU → LIS") viram origem/destino
-  if ((a.aereo || []).some(v => v.trecho && !v.de && !v.para)) a = { ...a, aereo: a.aereo.map(v => {
-    if (!v.trecho || v.de || v.para) return v
-    const [de = '', para = ''] = v.trecho.split(/\s*(?:→|->|-|\/|>)\s*/)
-    return { ...v, de: aeroporto(de), para: aeroporto(para) }
+  // e companhia em texto livre ("tap") vira a companhia da lista
+  if ((a.aereo || []).some(v => (v.trecho && !v.de && !v.para) || (v.cia && ciaDe(v.cia) !== v.cia))) a = { ...a, aereo: a.aereo.map(v => {
+    let out = { ...v, cia: ciaDe(v.cia) }
+    if (v.trecho && !v.de && !v.para) {
+      const [de = '', para = ''] = v.trecho.split(/\s*(?:→|->|-|\/|>)\s*/)
+      out = { ...out, de: aeroporto(de), para: aeroporto(para) }
+    }
+    return out
   }) }
   if (!a.transp?.length) return a
   const moved = a.transp.map(t => ({ id:t.id, tipo:['Trem','Ônibus','Transfer'].includes(t.tipo) ? t.tipo : 'Outro',
@@ -286,6 +296,10 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
     .map(g => ({ ...g, cidades: g.cidades.filter(c => !sel.includes(c.nome) &&
       (!busca || semAcento(`${c.nome} ${c.pais} ${g.grupo}`).includes(busca))) }))
     .filter(g => g.cidades.length)
+  // sigla digitada exata ("tp", "lis") vai para o topo
+  const sigla = c => busca.length >= 2 && semAcento(c.nome).endsWith(`(${busca})`)
+  lista.forEach(g => g.cidades.sort((x, y) => sigla(y) - sigla(x)))
+  lista.sort((x, y) => sigla(y.cidades[0]) - sigla(x.cidades[0]))
   const primeira = lista[0]?.cidades[0]?.nome
 
   return (
@@ -971,7 +985,8 @@ function Items({ s, a, onChange }) {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
               {s.fields.map(f => (
                 <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
-                  {f.t === 'airport' ? <CityPicker label={f.l} value={it[f.k]} groups={AEROPORTOS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
+                  {f.t === 'airport' || f.t === 'airline'
+                    ? <CityPicker label={f.l} value={it[f.k]} groups={f.t === 'airport' ? AEROPORTOS : CIAS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
                     : f.t === 'select' ? <Select label={f.l} value={it[f.k]} opts={f.opts} onChange={v => setItem(i, f.k, v)}/>
                     : f.t === 'check' ? (
                       <div><Label>{f.l}</Label>
