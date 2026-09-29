@@ -26,17 +26,18 @@ const STAGES = [
   { id:0,  name:'Lead Recebido',    color:'#5B8DEF', short:'Recebido'  },
   { id:1,  name:'Primeiro Contato', color:'#8B5CF6', short:'1º Contato'},
   { id:2,  name:'Atendimento',      color:'#A78BFA', short:'Atendimento'},
-  { id:3,  name:'Briefing',         color:'#F59E0B', short:'Briefing'  },
-  { id:4,  name:'Pesquisa',         color:'#FB923C', short:'Pesquisa'  },
   { id:5,  name:'Cotação Enviada',  color:'#3B82F6', short:'Cotação'   },
-  { id:6,  name:'Follow-up 1',      color:'#06B6D4', short:'Follow 1'  },
-  { id:7,  name:'Follow-up 2',      color:'#0EA5E9', short:'Follow 2'  },
+  { id:6,  name:'Follow-up',        color:'#06B6D4', short:'Follow-up' },
   { id:8,  name:'Negociação',       color:'#F97316', short:'Negociação'},
   { id:9,  name:'Aguardando Pgto',  color:'#EAB308', short:'Pgto'      },
   { id:10, name:'Venda Fechada',    color:'#22C55E', short:'Fechada'   },
   { id:11, name:'Pós-Venda',        color:'#10B981', short:'Pós-Venda' },
   { id:12, name:'Perdido',          color:'#EF4444', short:'Perdido'   },
 ]
+// ids mantidos p/ compatibilidade com leads salvos; estágios removidos (Briefing, Pesquisa, Follow-up 2) viram o vizinho
+const STAGE_MAP = { 3:2, 4:2, 7:6 }
+const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0]
+const normLeads = list => list.map(l => l.stage in STAGE_MAP ? { ...l, stage: STAGE_MAP[l.stage] } : l)
 
 const TIPOS = ['Internacional','Lua de Mel','Disney','Cruzeiro','Corporativo','Nacional','Europa','América do Sul']
 const ORIGENS = ['WhatsApp','Instagram','Indicação','Meta Ads','Google Ads','ManyChat','Site','TikTok','Parceiros']
@@ -164,7 +165,7 @@ export default function CRM() {
   const [leads,      setLeads]      = useState(() => {
     try {
       const saved = localStorage.getItem('crm_leads')
-      return saved ? JSON.parse(saved) : LEADS_INIT
+      return saved ? normLeads(JSON.parse(saved)) : LEADS_INIT
     } catch { return LEADS_INIT }
   })
   const [search,     setSearch]     = useState('')
@@ -207,7 +208,7 @@ export default function CRM() {
     try {
       const data = await fetchLeads(key)
       setAccessKey(key)
-      setLeads(data)
+      setLeads(normLeads(data))
       setMode('cloud')
       setCloudMsg('')
       return true
@@ -241,7 +242,7 @@ export default function CRM() {
     setMode('local')
     try {
       const saved = localStorage.getItem('crm_leads')
-      setLeads(saved ? JSON.parse(saved) : LEADS_INIT)
+      setLeads(normLeads(saved ? JSON.parse(saved) : LEADS_INIT))
     } catch { setLeads(LEADS_INIT) }
     setShowCloud(false)
   }
@@ -253,7 +254,7 @@ export default function CRM() {
       try {
         const saved = localStorage.getItem('crm_leads')
         if (saved) {
-          const parsed = JSON.parse(saved)
+          const parsed = normLeads(JSON.parse(saved))
           setLeads(prev => {
             if (JSON.stringify(prev) !== JSON.stringify(parsed)) return parsed
             return prev
@@ -468,7 +469,7 @@ export default function CRM() {
               </div>
               <div style={{ textAlign:'right', flexShrink:0 }}>
                 <div style={{ fontSize:13, fontWeight:700, color:T.gold }}>{fmtR(l.value)}</div>
-                <Badge color={STAGES[l.stage].color} small>{STAGES[l.stage].short}</Badge>
+                <Badge color={stageOf(l.stage).color} small>{stageOf(l.stage).short}</Badge>
               </div>
             </div>
           ))}
@@ -627,7 +628,7 @@ export default function CRM() {
                 </td>
                 <td style={tdS}><span style={{ fontWeight:700, color:T.gold }}>{fmtR(lead.value)}</span></td>
                 <td style={tdS}><Badge color={TEMP_C[lead.temp]}>{TEMP_I[lead.temp]} {lead.temp}</Badge></td>
-                <td style={tdS}><Badge color={STAGES[lead.stage].color}>{STAGES[lead.stage].short}</Badge></td>
+                <td style={tdS}><Badge color={stageOf(lead.stage).color}>{stageOf(lead.stage).short}</Badge></td>
                 <td style={{ ...tdS, fontSize:12, color:T.muted }}>{lead.source}</td>
                 <td style={{ ...tdS, fontSize:12 }}>{lead.consultor}</td>
                 <td style={{ ...tdS, fontSize:12, color:T.muted }}>{lead.date}</td>
@@ -874,7 +875,7 @@ export default function CRM() {
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
         {leads.filter(l => l.stage >= 5 && l.stage !== 12).map(lead => (
-          <Card key={lead.id} style={{ borderTop:`3px solid ${STAGES[lead.stage].color}`, padding:16 }}>
+          <Card key={lead.id} style={{ borderTop:`3px solid ${stageOf(lead.stage).color}`, padding:16 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
               <Avatar initials={lead.initials} color={lead.color}/>
               <div>
@@ -886,7 +887,7 @@ export default function CRM() {
             <div style={{ fontSize:11, color:T.muted, marginBottom:10 }}>📁 {lead.type}</div>
             <div style={{ fontSize:20, fontWeight:700, color:T.gold, marginBottom:10 }}>{fmtR(lead.value)}</div>
             <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
-              <Badge color={STAGES[lead.stage].color}>{STAGES[lead.stage].short}</Badge>
+              <Badge color={stageOf(lead.stage).color}>{stageOf(lead.stage).short}</Badge>
               <Badge color={TEMP_C[lead.temp]}>{TEMP_I[lead.temp]} {lead.temp}</Badge>
             </div>
             <div style={{ display:'flex', gap:8 }}>
@@ -1236,7 +1237,7 @@ CREATE TABLE activities (
             <div className="crm-scroll"
               style={{ background:T.card, borderRadius:14, padding:24, width:500,
                 maxHeight:'88vh', overflowY:'auto', border:T.borderN,
-                borderTop:`3px solid ${STAGES[selected.stage].color}` }}
+                borderTop:`3px solid ${stageOf(selected.stage).color}` }}
               onClick={e => e.stopPropagation()}>
 
               {/* Header */}
@@ -1247,7 +1248,7 @@ CREATE TABLE activities (
                     <div style={{ fontSize:18, fontWeight:700 }}>{selected.name}</div>
                     <div style={{ fontSize:12, color:T.muted }}>Lead #{String(selected.id).padStart(4,'0')} · {selected.date}</div>
                     <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                      <Badge color={STAGES[selected.stage].color}>{STAGES[selected.stage].name}</Badge>
+                      <Badge color={stageOf(selected.stage).color}>{stageOf(selected.stage).name}</Badge>
                       <Badge color={TEMP_C[selected.temp]}>{TEMP_I[selected.temp]} {selected.temp}</Badge>
                     </div>
                   </div>
@@ -1411,7 +1412,7 @@ CREATE TABLE activities (
                     {ORIGENS.map(s=><option key={s}>{s}</option>)}
                   </Sel>
                   <Sel label="Estágio inicial" value={newLead.stage} onChange={e=>setNewLead(p=>({...p,stage:parseInt(e.target.value)}))}>
-                    {STAGES.slice(0,5).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                    {STAGES.filter(s => s.id <= 5).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                   </Sel>
                 </div>
                 <div>
