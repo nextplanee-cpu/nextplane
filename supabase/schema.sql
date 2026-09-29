@@ -36,3 +36,17 @@ create index if not exists crm_leads_created_at_idx on public.crm_leads (created
 -- Segurança: RLS ligado e SEM políticas → ninguém lê a tabela com a chave pública.
 -- Só o servidor (Vercel, com a service role key) acessa os dados.
 alter table public.crm_leads enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- Assessorias — gestão operacional das viagens contratadas
+-- Cada ficha guarda etapas, checklists, aéreo, hotéis etc. em `data` (JSON)
+create table if not exists public.crm_assessorias (
+  id          bigserial primary key,
+  lead_id     bigint,                        -- lead de origem (opcional)
+  data        jsonb not null default '{}'::jsonb,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+create index if not exists crm_assessorias_created_at_idx on public.crm_assessorias (created_at desc);
+alter table public.crm_assessorias enable row level security;

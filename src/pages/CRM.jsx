@@ -5,8 +5,9 @@ import {
   MessageCircle, ChevronRight, LogOut, Bell,
   Phone, Mail, MapPin, Calendar, Star, TrendingUp,
   CheckCircle2, AlertCircle, Clock, Filter,
-  Cloud, CloudOff, Megaphone, RefreshCw, Trash2
+  Cloud, CloudOff, Megaphone, RefreshCw, Trash2, Briefcase
 } from 'lucide-react'
+import Assessorias from './crm/Assessorias'
 import {
   getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, removeLead, waLink,
   metaStatus, metaSubscribe,
@@ -388,6 +389,7 @@ export default function CRM() {
     { id:'pipeline',    icon:<GitBranch       size={16}/>, label:'Pipeline'     },
     { id:'leads',       icon:<Users           size={16}/>, label:'Leads'        },
     { id:'meta',        icon:<Megaphone       size={16}/>, label:'Leads Meta'   },
+    { id:'assessorias', icon:<Briefcase       size={16}/>, label:'Assessorias'  },
     { id:'propostas',   icon:<FileText        size={16}/>, label:'Propostas'    },
     { id:'automacoes',  icon:<Zap             size={16}/>, label:'Automações'   },
     { id:'relatorios',  icon:<BarChart2       size={16}/>, label:'Relatórios'   },
@@ -1118,6 +1120,7 @@ CREATE TABLE activities (
     pipeline:    <ViewPipeline/>,
     leads:       <ViewLeads/>,
     meta:        <ViewMeta/>,
+    assessorias: <Assessorias mode={mode}/>,
     propostas:   <ViewPropostas/>,
     automacoes:  <ViewAutomacoes/>,
     relatorios:  <ViewRelatorios/>,

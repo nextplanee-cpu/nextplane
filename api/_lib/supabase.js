@@ -58,3 +58,20 @@ export const updateLead = (id, row) =>
 
 export const deleteLead = id =>
   request(`${TABLE}?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', prefer: 'return=representation' })
+
+/* ── Assessorias (gestão operacional das viagens contratadas) ── */
+const TABLE_ASS = 'crm_assessorias'
+
+export const listAssessorias = () =>
+  request(`${TABLE_ASS}?select=*&order=created_at.desc&limit=1000`)
+
+export const insertAssessoria = row =>
+  request(TABLE_ASS, { method: 'POST', body: row, prefer: 'return=representation' })
+
+export const updateAssessoria = (id, row) =>
+  request(`${TABLE_ASS}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: { ...row, updated_at: new Date().toISOString() }, prefer: 'return=representation',
+  })
+
+export const deleteAssessoria = id =>
+  request(`${TABLE_ASS}?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', prefer: 'return=representation' })
