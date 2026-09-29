@@ -1,7 +1,7 @@
 /**
  * Next Plane CRM — Gestão de Assessorias
- * Cada viagem contratada vira uma ficha com 8 etapas operacionais,
- * checklists, itens (aéreo, hotéis, transportes, experiências), alertas e templates.
+ * Cada viagem contratada vira uma ficha com 9 etapas operacionais,
+ * checklists, itens (aéreo, hotéis, seguro, ingressos e trem, internet), roteiro dia a dia, alertas e templates.
  * Dados: "Só neste navegador" (localStorage) ou "Nuvem" (/api/assessorias).
  */
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -27,19 +27,20 @@ const inputS = {
 }
 
 /* ─── Etapas ─────────────────────────────────────────── */
-const AEREO_ST  = ['Pendente','Em pesquisa','Opções enviadas','Aguardando cliente','Emitido']
-const HOTEL_ST  = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
-const TRANSP_ST = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
-const EXP_ST    = ['Definido','Cotado','Aprovado','Comprado','Voucher anexado']
+const AEREO_ST    = ['Pendente','Em pesquisa','Opções enviadas','Aguardando cliente','Emitido']
+const HOTEL_ST    = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
+const SEGURO_ST   = ['Pendente','Cotado','Aguardando cliente','Contratado','Apólice enviada']
+const EXP_ST      = ['Definido','Cotado','Aprovado','Comprado','Voucher anexado']
+const INTERNET_ST = ['Pendente','Cotado','Comprado','Enviado ao cliente']
 
 const STEPS = [
-  { k:'onboarding', icon:'🟡', name:'Reunião de Onboarding', short:'Onboarding', color:'#F59E0B', kind:'check',
+  { k:'onboarding', icon:'🟡', name:'Onboarding', short:'Onboarding', color:'#F59E0B', kind:'check',
     goal:'Entender completamente a viagem.', out:'Briefing completo para começar a montar a viagem.',
     checks:['Reunião realizada','Perfil dos viajantes','Objetivo da viagem','Orçamento','Datas','Destinos desejados','Preferências','Restrições','Documentos e dados dos viajantes'] },
-  { k:'rota', icon:'🧭', name:'Definição da rota prévia', short:'Rota', color:'#8B5CF6', kind:'check',
-    goal:'Estruturar a viagem antes das emissões.', out:'Rota prévia aprovada.',
-    checks:['Destinos definidos','Ordem dos destinos','Datas aproximadas','Deslocamentos entre cidades','Tempo em cada destino','Rota aprovada pelo cliente'] },
-  { k:'aereo', icon:'✈️', name:'Emissão de aéreo', short:'Aéreo', color:'#3B82F6', kind:'items', unit:'trechos emitidos',
+  { k:'rota', icon:'🧭', name:'Definição de roteiro prévio', short:'Roteiro prévio', color:'#8B5CF6', kind:'check',
+    goal:'Estruturar a viagem antes das emissões.', out:'Roteiro prévio aprovado pelo cliente.',
+    checks:['Destinos definidos','Ordem dos destinos','Datas aproximadas','Deslocamentos entre cidades','Tempo em cada destino','Roteiro prévio aprovado pelo cliente'] },
+  { k:'aereo', icon:'✈️', name:'Emissão de passagem aérea', short:'Aéreo', color:'#3B82F6', kind:'items', unit:'trechos emitidos', add:'trecho',
     statuses:AEREO_ST, done:['Emitido'], blank:{ trecho:'', data:'', cia:'', tipo:'Milhas', programa:'', milhas:'', taxas:'', valor:'', localizador:'', link:'', status:'Pendente' },
     fields:[
       { k:'trecho', l:'Trecho', ph:'GRU → LIS', w:2 }, { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Cia', ph:'TAP' },
@@ -47,36 +48,54 @@ const STEPS = [
       { k:'milhas', l:'Milhas', t:'number' }, { k:'taxas', l:'Taxas R$', t:'number' }, { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
-  { k:'hotel', icon:'🏨', name:'Emissão de hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas',
+  { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
     statuses:HOTEL_ST, done:['Reservado','Voucher anexado'], blank:{ cidade:'', hotel:'', checkin:'', checkout:'', quarto:'', cafe:false, cancelamento:'', valor:'', confirmacao:'', link:'', status:'Pendente' },
     fields:[
       { k:'cidade', l:'Cidade' }, { k:'hotel', l:'Hotel', w:2 }, { k:'checkin', l:'Check-in', t:'date' }, { k:'checkout', l:'Check-out', t:'date' },
       { k:'quarto', l:'Tipo de quarto' }, { k:'cafe', l:'Café da manhã', t:'check' }, { k:'cancelamento', l:'Cancelamento', ph:'Grátis até…' },
       { k:'valor', l:'Valor R$', t:'number' }, { k:'confirmacao', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
-  { k:'transp', icon:'🚆', name:'Transportes', short:'Transportes', color:'#0EA5E9', kind:'items', unit:'reservados',
-    statuses:TRANSP_ST, done:['Reservado','Voucher anexado'], blank:{ tipo:'Trem', origem:'', destino:'', data:'', hora:'', passageiros:'', reserva:'', link:'', status:'Pendente' },
+  { k:'seguro', icon:'🛡️', name:'Seguro viagem', short:'Seguro', color:'#10B981', kind:'items', unit:'contratados', add:'seguro',
+    statuses:SEGURO_ST, done:['Contratado','Apólice enviada'], blank:{ seguradora:'', plano:'', cobertura:'', inicio:'', fim:'', viajantes:'', valor:'', apolice:'', link:'', status:'Pendente' },
     fields:[
-      { k:'tipo', l:'Tipo', t:'select', opts:['Trem','Ônibus','Transfer','Aluguel de carro','Transporte privado','Barco / Ferry','Outro'] },
-      { k:'origem', l:'Origem' }, { k:'destino', l:'Destino' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
-      { k:'passageiros', l:'Passageiros', t:'number' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+      { k:'seguradora', l:'Seguradora', ph:'Assist Card, GTA…' }, { k:'plano', l:'Plano', ph:'Europa 60 mil €' }, { k:'cobertura', l:'Cobertura médica', ph:'€ 60.000' },
+      { k:'inicio', l:'Início', t:'date' }, { k:'fim', l:'Fim', t:'date' }, { k:'viajantes', l:'Viajantes', t:'number' },
+      { k:'valor', l:'Valor R$', t:'number' }, { k:'apolice', l:'Nº apólice' }, { k:'link', l:'Apólice (link)', ph:'https://', w:2 },
     ] },
-  { k:'exp', icon:'🎟️', name:'Ingressos e experiências', short:'Passeios', color:'#EC4899', kind:'items', unit:'comprados',
-    statuses:EXP_ST, done:['Comprado','Voucher anexado'], blank:{ tipo:'Passeio', nome:'', cidade:'', data:'', hora:'', valor:'', link:'', status:'Definido' },
+  { k:'exp', icon:'🎟️', name:'Ingressos e trem', short:'Ingressos e trem', color:'#EC4899', kind:'items', unit:'comprados', add:'ingresso ou trem',
+    statuses:EXP_ST, done:['Comprado','Voucher anexado'], blank:{ tipo:'Ingresso', nome:'', cidade:'', data:'', hora:'', passageiros:'', valor:'', reserva:'', link:'', status:'Definido' },
     fields:[
-      { k:'tipo', l:'Tipo', t:'select', opts:['Ingresso','Passeio','Tour','Restaurante','Experiência','Evento','Museu','Parque','Outro'] },
-      { k:'nome', l:'Nome', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
-      { k:'valor', l:'Valor R$', t:'number' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+      { k:'tipo', l:'Tipo', t:'select', opts:['Ingresso','Trem','Passeio','Tour','Museu','Parque','Evento','Transfer','Ônibus','Outro'] },
+      { k:'nome', l:'Nome / trecho', ph:'Louvre · Paris → Londres', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
+      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
-  { k:'previagem', icon:'🧳', name:'Reunião de pré-viagem', short:'Pré-viagem', color:'#F97316', kind:'check',
-    goal:'Transformar reservas em gestão integral da viagem.', out:'Cliente pronto para viajar.',
-    checks:['Roteiro final revisado','Todos os voos conferidos','Hotéis conferidos','Transportes conferidos','Passeios conferidos','Documentação (passaporte / visto)','Seguro viagem','Bagagem','Check-in','Orientações importantes','Dúvidas do cliente','Reunião realizada'] },
-  { k:'final', icon:'🏁', name:'Viagem finalizada', short:'Finalização', color:'#22C55E', kind:'check',
-    goal:'Encerrar a assessoria com o cliente satisfeito.', out:'Assessoria encerrada e cliente pronto para indicar.',
-    checks:['Viagem encerrada','Pendências conferidas','Solicitações pós-viagem','Feedback recebido','Observações registradas','Pedido de indicação / avaliação','Assessoria encerrada'] },
+  { k:'internet', icon:'📶', name:'Internet', short:'Internet', color:'#0EA5E9', kind:'items', unit:'comprados', add:'chip / eSIM',
+    statuses:INTERNET_ST, done:['Comprado','Enviado ao cliente'], blank:{ tipo:'eSIM', operadora:'', regiao:'', dados:'', inicio:'', dias:'', valor:'', link:'', status:'Pendente' },
+    fields:[
+      { k:'tipo', l:'Tipo', t:'select', opts:['eSIM','Chip físico','Roaming da operadora','Pocket Wi-Fi'] },
+      { k:'operadora', l:'Operadora', ph:'Airalo, Holafly…' }, { k:'regiao', l:'País / região', ph:'Europa' }, { k:'dados', l:'Dados', ph:'10 GB / ilimitado' },
+      { k:'inicio', l:'Ativação', t:'date' }, { k:'dias', l:'Dias', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'link', l:'QR code / voucher (link)', ph:'https://', w:2 },
+    ] },
+  { k:'roteiro', icon:'🗓️', name:'Definição de roteiro final (dia a dia)', short:'Roteiro final', color:'#A78BFA', kind:'check', dayByDay:true,
+    goal:'Montar a programação completa de cada dia da viagem.', out:'Roteiro dia a dia aprovado e entregue ao cliente.',
+    checks:['Roteiro dia a dia montado','Horários e deslocamentos conferidos','Voos, hotéis e ingressos no roteiro','Dicas de restaurantes e passeios','Roteiro enviado ao cliente','Cliente aprovou o roteiro final'] },
+  { k:'previagem', icon:'📞', name:'Call prévia à viagem — alinhamentos finais', short:'Call prévia', color:'#F97316', kind:'check',
+    goal:'Alinhar tudo com o cliente antes do embarque.', out:'Cliente pronto para viajar.',
+    checks:['Call agendada','Roteiro final revisado com o cliente','Voos e check-in','Hospedagens conferidas','Seguro viagem conferido','Ingressos e trens conferidos','Internet / eSIM pronto','Documentação (passaporte / visto)','Bagagem e clima','Dinheiro e cartões','Dúvidas do cliente','Call realizada'] },
 ]
 const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
-const EMISSAO = ['aereo','hotel','transp','exp']
+const EMISSAO = ['aereo','hotel','seguro','exp','internet']
+const CUSTOS  = ['aereo','hotel','seguro','exp','internet']
+
+/* Fichas criadas na versão anterior: transportes passam para "Ingressos e trem" */
+const TRANSP_MAP = { 'Pendente':'Definido', 'Cotado':'Cotado', 'Aguardando cliente':'Aprovado', 'Reservado':'Comprado', 'Voucher anexado':'Voucher anexado' }
+const migrate = a => {
+  if (!a.transp?.length) return a
+  const moved = a.transp.map(t => ({ id:t.id, tipo:['Trem','Ônibus','Transfer'].includes(t.tipo) ? t.tipo : 'Outro',
+    nome:[t.origem, t.destino].filter(Boolean).join(' → '), cidade:'', data:t.data || '', hora:t.hora || '',
+    passageiros:t.passageiros || '', valor:t.valor || '', reserva:t.reserva || '', link:t.link || '', status:TRANSP_MAP[t.status] || 'Definido' }))
+  return { ...a, exp:[...(a.exp || []), ...moved], transp:[] }
+}
 
 const STATUS = {
   andamento:  { label:'Em andamento',       color:T.info },
@@ -94,7 +113,7 @@ const TEMPLATES = {
     ['Pedido de dados', '{primeiro_nome}, para começarmos a montar a viagem preciso de:\n\n• Nome completo de todos os viajantes (igual ao passaporte)\n• Data de nascimento\n• Validade dos passaportes\n• Cidade de saída\n• Preferências (assento, tipo de hotel, ritmo da viagem)\n\nPode me enviar por aqui mesmo 😊'],
   ],
   rota: [
-    ['Envio da rota prévia', '{primeiro_nome}, segue a rota prévia da sua viagem para {destino} ({periodo}):\n\n[cole a rota aqui]\n\nMe diga se aprova ou se quer ajustar algo antes de começarmos as emissões.'],
+    ['Envio do roteiro prévio', '{primeiro_nome}, segue o roteiro prévio da sua viagem para {destino} ({periodo}):\n\n[cole o roteiro aqui]\n\nMe diga se aprova ou se quer ajustar algo antes de começarmos as emissões.'],
   ],
   aereo: [
     ['Solicitação de informações', '{primeiro_nome}, para buscar as melhores opções de voo preciso confirmar: datas flexíveis? Preferência de companhia ou horário? Bagagem despachada para todos?'],
@@ -108,20 +127,24 @@ const TEMPLATES = {
     ['Envio de opções de hotel', '{primeiro_nome}, separei estas opções de hospedagem:\n\n[opções]\n\nQual combina mais com vocês?'],
     ['Confirmação de reservas', '{primeiro_nome}, hospedagens confirmadas ✅\n\n{hoteis}'],
   ],
-  transp: [
-    ['Confirmação de transportes', '{primeiro_nome}, seus transportes estão reservados ✅ Te envio os vouchers organizados por data.'],
+  seguro: [
+    ['Opções de seguro', '{primeiro_nome}, separei as opções de seguro viagem para {destino} ({periodo}):\n\n[opções]\n\nPara a Europa a cobertura mínima exigida é de € 30.000 — recomendo uma cobertura maior para viajar tranquilo.'],
+    ['Envio da apólice', '{primeiro_nome}, seguro viagem contratado ✅ Segue a apólice. Salve no celular e anote o telefone de emergência da seguradora.'],
   ],
   exp: [
-    ['Sugestões de passeios', '{primeiro_nome}, separei algumas experiências que combinam com o perfil de vocês em {destino}:\n\n[sugestões]\n\nQuais querem incluir?'],
-    ['Confirmação de ingressos', '{primeiro_nome}, ingressos e passeios comprados ✅ Os vouchers já estão organizados para a viagem.'],
+    ['Sugestões de ingressos', '{primeiro_nome}, separei algumas experiências que combinam com o perfil de vocês em {destino}:\n\n[sugestões]\n\nQuais querem incluir?'],
+    ['Confirmação de trens', '{primeiro_nome}, trens reservados ✅ Os bilhetes já estão organizados por data. Chegue à estação com 20 a 30 minutos de antecedência.'],
+    ['Confirmação de ingressos', '{primeiro_nome}, ingressos comprados ✅ Os vouchers já estão organizados para a viagem.'],
+  ],
+  internet: [
+    ['Orientação de eSIM', '{primeiro_nome}, seu eSIM para {destino} está pronto 📶\n\n1. Confira se o celular aceita eSIM\n2. Instale pelo QR code ainda no Brasil, com Wi-Fi\n3. Só ative a linha ao chegar\n4. Ligue o roaming de dados no eSIM\n\nQualquer dúvida me chama!'],
+  ],
+  roteiro: [
+    ['Envio do roteiro final', '{primeiro_nome}, segue o roteiro dia a dia da sua viagem para {destino} 🗓️\n\n{roteiro}\n\nMe diga se quer ajustar algo!'],
   ],
   previagem: [
-    ['Agendar pré-viagem', '{primeiro_nome}, faltam {dias} dias para a viagem! Vamos marcar nossa reunião de pré-viagem para revisar roteiro, documentos, seguro e bagagem?'],
-    ['Checklist de embarque', '{primeiro_nome}, checklist final antes de embarcar:\n\n✅ Passaportes válidos\n✅ Seguro viagem\n✅ Check-in feito\n✅ Vouchers salvos no celular\n✅ Cartão internacional liberado\n\nBoa viagem! Estou à disposição durante toda a viagem.'],
-  ],
-  final: [
-    ['Boas-vindas de volta', 'Bem-vindos de volta, {primeiro_nome}! 🧳 Como foi a viagem para {destino}? Queria muito ouvir o seu feedback — o que foi incrível e o que podemos melhorar.'],
-    ['Pedido de indicação', '{primeiro_nome}, foi um prazer cuidar da sua viagem! Se puder deixar uma avaliação ou indicar um amigo que também sonha em viajar, vai ajudar muito a Next Plane 💛'],
+    ['Agendar call prévia', '{primeiro_nome}, faltam {dias} dias para a viagem! Vamos marcar nossa call de alinhamentos finais para revisar roteiro, documentos, seguro, internet e bagagem? Me diga o melhor horário.'],
+    ['Checklist de embarque', '{primeiro_nome}, checklist final antes de embarcar:\n\n✅ Passaportes válidos\n✅ Seguro viagem\n✅ Check-in feito\n✅ eSIM instalado\n✅ Vouchers e bilhetes salvos no celular\n✅ Cartão internacional liberado\n\nBoa viagem! Estou à disposição durante toda a viagem.'],
   ],
 }
 
@@ -157,14 +180,14 @@ function alertas(a) {
   if (dias !== null && dias >= 0 && dias <= 30 && pend.length)
     out.push(`Embarque em ${dias}d com pendências: ${pend.map(k => STEP[k].short).join(', ')}`)
   if (dias !== null && dias >= 0 && dias <= 7 && !progress(a, STEP.previagem).complete)
-    out.push('Pré-viagem ainda não concluída')
+    out.push('Call prévia ainda não realizada')
   const volta = a.fim || a.inicio
   if (volta) (a.passageiros || []).forEach(p => {
     if (p.passaporte && p.passaporte < addMonths(volta, 6))
       out.push(`Passaporte de ${p.nome || 'viajante'} vence em menos de 6 meses após a volta`)
   })
   if (a.proxima_data && a.proxima_data < todayISO()) out.push('Próxima ação atrasada')
-  if (a.fim && daysTo(a.fim) < 0 && !progress(a, STEP.final).complete) out.push('Viagem terminou — faça o encerramento')
+  if (a.fim && daysTo(a.fim) < 0) out.push('Viagem terminou — marque a assessoria como concluída')
   return out
 }
 
@@ -174,6 +197,7 @@ function fillTemplate(txt, a) {
     destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
     dias: daysTo(a.inicio) ?? '—',
     localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${v.trecho || 'Voo'}${v.data ? ` (${fmtD(v.data)})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
+    roteiro: (a.roteiro_dias || []).filter(d => d.programacao || d.cidade).map((d, i) => `*Dia ${i + 1}${d.data ? ` — ${fmtD(d.data)}` : ''}${d.cidade ? ` · ${d.cidade}` : ''}*\n${d.programacao || ''}`).join('\n\n') || '[roteiro]',
     hoteis: (a.hotel || []).filter(h => h.hotel).map(h => `🏨 ${h.cidade ? `${h.cidade} — ` : ''}${h.hotel} (${fmtD(h.checkin)} a ${fmtD(h.checkout)})`).join('\n') || '[hotéis]',
   }
   return txt.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
@@ -225,7 +249,7 @@ const Bar = ({ pct, color }) => (
 /*  COMPONENTE PRINCIPAL                                */
 /* ════════════════════════════════════════════════════ */
 const LS_KEY = 'crm_assessorias'
-const readLocal = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) || [] } catch { return [] } }
+const readLocal = () => { try { return (JSON.parse(localStorage.getItem(LS_KEY)) || []).map(migrate) } catch { return [] } }
 
 export default function Assessorias({ mode = 'local' }) {
   const [store,   setStore]   = useState(() => ({ mode:'local', items: readLocal() }))
@@ -241,7 +265,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   /* Carrega conforme o modo (navegador x nuvem) */
   const loadCloud = async () => {
-    try { setStore({ mode:'cloud', items: await fetchAssessorias() }); setErr('') }
+    try { setStore({ mode:'cloud', items: (await fetchAssessorias()).map(migrate) }); setErr('') }
     catch (e) { setErr(e.message === 'table_missing' ? 'table_missing' : e.status === 401 ? 'Chave de acesso inválida.' : 'Não foi possível carregar as assessorias da nuvem.') }
   }
   useEffect(() => {
@@ -288,7 +312,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   const create = async form => {
     const base = {
-      ...form, status:'andamento', checks:{}, na:{}, aereo:[], hotel:[], transp:[], exp:[], passageiros:[],
+      ...form, status:'andamento', checks:{}, na:{}, aereo:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros:[],
       proxima_acao:'Agendar reunião de onboarding', proxima_data:'',
       log:[{ t:new Date().toISOString(), msg:'Assessoria criada' }],
     }
@@ -363,9 +387,10 @@ function Overview({ list, onOpen, onNew, mode }) {
   const kpis = [
     { label:'Assessorias ativas', val:ativas.length, color:T.gold },
     { label:'Onboardings',        val:ativas.filter(a => etapaDe(a) === 'onboarding').length, color:STEP.onboarding.color },
-    { label:'Rotas em definição', val:ativas.filter(a => etapaDe(a) === 'rota').length, color:STEP.rota.color },
+    { label:'Roteiro prévio',     val:ativas.filter(a => etapaDe(a) === 'rota').length, color:STEP.rota.color },
     { label:'Em emissão',         val:ativas.filter(a => EMISSAO.includes(etapaDe(a))).length, color:STEP.aereo.color },
-    { label:'Pré-viagem',         val:ativas.filter(a => etapaDe(a) === 'previagem').length, color:STEP.previagem.color },
+    { label:'Roteiro final',      val:ativas.filter(a => etapaDe(a) === 'roteiro').length, color:STEP.roteiro.color },
+    { label:'Call prévia',        val:ativas.filter(a => etapaDe(a) === 'previagem').length, color:STEP.previagem.color },
     { label:'Embarcam em 30 dias',val:ativas.filter(a => { const d = daysTo(a.inicio); return d !== null && d >= 0 && d <= 30 }).length, color:T.info },
     { label:'Com alerta',         val:ativas.filter(a => alertas(a).length).length, color:T.err },
   ]
@@ -573,7 +598,7 @@ function Geral({ a, set, onChange }) {
   const aereo = a.aereo || []
   const milhas = aereo.reduce((s, v) => s + (Number(v.milhas) || 0), 0)
   const taxas  = aereo.reduce((s, v) => s + (Number(v.taxas) || 0), 0)
-  const custos = ['aereo','hotel','transp','exp'].reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0) + taxas
+  const custos = CUSTOS.reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0) + taxas
 
   return (
     <div style={{ display:'grid', gap:14 }}>
@@ -676,6 +701,7 @@ function StepPanel({ s, a, onChange }) {
         </div>}
       </Card>
 
+      {!na && s.dayByDay && <DiaADia a={a} onChange={onChange}/>}
       {!na && (s.kind === 'check' ? <Checklist s={s} a={a} onChange={onChange}/> : <Items s={s} a={a} onChange={onChange}/>)}
 
       {!na && s.out && (
@@ -693,6 +719,48 @@ function StepPanel({ s, a, onChange }) {
 
       <Templates s={s} a={a}/>
     </div>
+  )
+}
+
+/* Roteiro final: programação de cada dia */
+function DiaADia({ a, onChange }) {
+  const dias = a.roteiro_dias || []
+  const setDia = (i, k, v) => onChange(x => ({ ...x, roteiro_dias: x.roteiro_dias.map((d, j) => j === i ? { ...d, [k]: v } : d) }))
+  const add = () => onChange(x => ({ ...x, roteiro_dias:[...(x.roteiro_dias || []), { id:uid(), data:'', cidade:'', programacao:'' }] }))
+  const gerar = () => {
+    if (!a.inicio || !a.fim) return window.alert('Preencha as datas de ida e volta em "Visão geral" primeiro.')
+    const out = []
+    for (let d = new Date(`${a.inicio}T12:00`); d <= new Date(`${a.fim}T12:00`); d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10)
+      out.push(dias.find(x => x.data === iso) || { id:uid(), data:iso, cidade:cidadeDe(iso), programacao:'' })
+    }
+    onChange(x => ({ ...x, roteiro_dias: out }))
+  }
+  const cidadeDe = iso => (a.hotel || []).find(h => h.checkin && h.checkin <= iso && (!h.checkout || iso < h.checkout))?.cidade || ''
+  return (
+    <Card>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+        <div style={{ fontWeight:700 }}>🗓️ Roteiro dia a dia</div>
+        <div style={{ display:'flex', gap:6 }}>
+          <Btn small outline onClick={gerar}><Calendar size={12}/> Gerar dias pelas datas</Btn>
+          <Btn small outline onClick={add}><Plus size={12}/> Dia</Btn>
+        </div>
+      </div>
+      {dias.length === 0 && <div style={{ fontSize:12, color:T.muted }}>Clique em "Gerar dias pelas datas" para criar um dia para cada data da viagem — a cidade vem das hospedagens cadastradas.</div>}
+      {dias.map((d, i) => (
+        <div key={d.id} className="ass-dia" style={{ display:'grid', gridTemplateColumns:'64px 150px 1fr 34px', gap:8, marginBottom:8, alignItems:'start' }}>
+          <div style={{ fontSize:13, fontWeight:700, color:T.gold, paddingTop:8 }}>Dia {i + 1}</div>
+          <div style={{ display:'grid', gap:6 }}>
+            <Field type="date" value={d.data} onChange={v => setDia(i, 'data', v)}/>
+            <Field value={d.cidade} ph="Cidade" onChange={v => setDia(i, 'cidade', v)}/>
+          </div>
+          <textarea value={d.programacao} rows={3} placeholder="Manhã: …  Tarde: …  Noite: …"
+            onChange={e => setDia(i, 'programacao', e.target.value)} style={{ ...inputS, resize:'vertical' }}/>
+          <IconDel onClick={() => onChange(x => ({ ...x, roteiro_dias: x.roteiro_dias.filter((_, j) => j !== i) }))}/>
+        </div>
+      ))}
+      <style>{`@media (max-width: 760px) { .ass-dia { grid-template-columns: 1fr !important; } }`}</style>
+    </Card>
   )
 }
 
@@ -758,7 +826,7 @@ function Items({ s, a, onChange }) {
           </Card>
         )
       })}
-      <div><Btn outline small onClick={add}><Plus size={13}/> Adicionar {s.k === 'aereo' ? 'trecho' : s.k === 'hotel' ? 'hospedagem' : s.k === 'transp' ? 'transporte' : 'item'}</Btn></div>
+      <div><Btn outline small onClick={add}><Plus size={13}/> Adicionar {s.add || 'item'}</Btn></div>
       {s.k === 'aereo' && items.length > 0 && (
         <div style={{ fontSize:12, color:T.muted }}>
           <Plane size={12} style={{ verticalAlign:-2 }}/> Total: {items.reduce((t, v) => t + (Number(v.milhas) || 0), 0).toLocaleString('pt-BR')} milhas
