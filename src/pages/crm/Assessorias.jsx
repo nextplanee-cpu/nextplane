@@ -12,6 +12,7 @@ import {
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText,
 } from '../../lib/assessoriasApi'
+import { ORIGENS_BR, DESTINOS } from './cidades'
 
 /* ─── Design tokens (mesmos do CRM) ─────────────────── */
 const T = {
@@ -244,6 +245,92 @@ const Bar = ({ pct, color }) => (
     <div style={{ height:'100%', width:`${Math.round(pct * 100)}%`, background:color, transition:'width .3s' }}/>
   </div>
 )
+
+/* ─── Seletor de cidades (busca + lista; destino aceita várias) ── */
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const cidadesDe = a => (a.cidades?.length ? a.cidades : a.destino ? [a.destino] : [])
+
+function CityPicker({ label, value, onChange, groups, multi, ph }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+  const sel = multi ? (value || []) : (value ? [value] : [])
+
+  useEffect(() => {
+    if (!open) return
+    const close = e => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  const escolher = nome => {
+    const n = nome.trim()
+    if (!n) return
+    if (multi) { if (!sel.includes(n)) onChange([...sel, n]) }
+    else { onChange(n); setOpen(false) }
+    setQ('')
+  }
+  const tirar = nome => onChange(multi ? sel.filter(x => x !== nome) : '')
+
+  const busca = semAcento(q)
+  const lista = groups
+    .map(g => ({ ...g, cidades: g.cidades.filter(c => !sel.includes(c.nome) &&
+      (!busca || semAcento(`${c.nome} ${c.pais} ${g.grupo}`).includes(busca))) }))
+    .filter(g => g.cidades.length)
+  const primeira = lista[0]?.cidades[0]?.nome
+
+  return (
+    <div ref={boxRef} style={{ position:'relative' }}>
+      {label && <Label>{label}</Label>}
+      <div onClick={() => setOpen(true)} style={{ ...inputS, display:'flex', flexWrap:'wrap', gap:5, alignItems:'center', minHeight:38, padding:'5px 8px', cursor:'text' }}>
+        {sel.map(n => (
+          <span key={n} style={{ display:'inline-flex', alignItems:'center', gap:4, background:'rgba(212,175,55,0.15)',
+            color:T.gold, border:'1px solid rgba(212,175,55,0.3)', borderRadius:20, padding:'2px 4px 2px 9px', fontSize:12, fontWeight:600 }}>
+            {n}
+            <button onClick={e => { e.stopPropagation(); tirar(n) }} title="Remover"
+              style={{ background:'transparent', border:'none', color:T.gold, cursor:'pointer', padding:0, display:'flex' }}><X size={12}/></button>
+          </span>
+        ))}
+        {(multi || !sel.length) && (
+          <input value={q} placeholder={sel.length ? 'Adicionar cidade…' : ph}
+            onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); escolher(primeira && busca ? primeira : q) }
+              else if (e.key === 'Backspace' && !q && sel.length) tirar(sel[sel.length - 1])
+              else if (e.key === 'Escape') setOpen(false)
+            }}
+            style={{ flex:1, minWidth:120, background:'transparent', border:'none', outline:'none', color:T.text, fontSize:13, fontFamily:'inherit', padding:'3px 2px' }}/>
+        )}
+      </div>
+      {open && (
+        <div className="crm-scroll" style={{ position:'absolute', zIndex:50, left:0, right:0, top:'100%', marginTop:4, maxHeight:260, overflowY:'auto',
+          background:'#0d1628', border:T.border, borderRadius:10, boxShadow:'0 12px 30px rgba(0,0,0,0.5)', padding:6 }}>
+          {q.trim() && !lista.some(g => g.cidades.some(c => semAcento(c.nome) === busca)) && (
+            <div onMouseDown={e => { e.preventDefault(); escolher(q) }}
+              style={{ padding:'7px 10px', borderRadius:6, cursor:'pointer', fontSize:13, color:T.gold }}>
+              + Usar “{q.trim()}”
+            </div>
+          )}
+          {lista.map(g => (
+            <div key={g.grupo}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.muted, letterSpacing:0.5, padding:'8px 10px 4px' }}>{g.grupo.toUpperCase()}</div>
+              {g.cidades.map(c => (
+                <div key={c.nome} onMouseDown={e => { e.preventDefault(); escolher(c.nome) }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  style={{ padding:'6px 10px', borderRadius:6, cursor:'pointer', fontSize:13, display:'flex', justifyContent:'space-between', gap:8 }}>
+                  <span>{c.nome}</span><span style={{ color:T.muted, fontSize:11 }}>{c.pais}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          {!lista.length && !q.trim() && <div style={{ padding:10, fontSize:12, color:T.muted }}>Todas as cidades já foram escolhidas.</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 /* ════════════════════════════════════════════════════ */
 /*  COMPONENTE PRINCIPAL                                */
@@ -584,6 +671,7 @@ function Ficha({ a, onChange, onBack, onDelete, saving }) {
             : <StepPanel s={STEP[tab]} a={a} onChange={onChange}/>}
         </div>
       </div>
+      <datalist id="ass-cidades">{cidadesDe(a).map(c => <option key={c} value={c}/>)}</datalist>
       <style>{`@media (max-width: 760px) { .ass-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>
   )
@@ -699,8 +787,9 @@ function Geral({ a, set, onChange }) {
           <Field label="Cliente" value={a.cliente} onChange={v => set('cliente', v)}/>
           <Field label="WhatsApp" value={a.phone} onChange={v => set('phone', v)} ph="11999999999"/>
           <Field label="E-mail" value={a.email} onChange={v => set('email', v)}/>
-          <Field label="Origem" value={a.origem} onChange={v => set('origem', v)} ph="São Paulo (GRU)"/>
-          <Field label="Destino" value={a.destino} onChange={v => set('destino', v)}/>
+          <CityPicker label="Origem" value={a.origem} onChange={v => set('origem', v)} groups={ORIGENS_BR} ph="Cidade de saída"/>
+          <div style={{ gridColumn:'span 2' }}><CityPicker multi label="Cidades de destino" value={cidadesDe(a)} groups={DESTINOS} ph="Escolha as cidades"
+            onChange={v => onChange(x => ({ ...x, cidades:v, destino:v.join(', ') }))}/></div>
           <Field label="Ida" type="date" value={a.inicio} onChange={v => set('inicio', v)}/>
           <Field label="Volta" type="date" value={a.fim} onChange={v => set('fim', v)}/>
           <Field label="Nº de viajantes" type="number" value={a.viajantes} onChange={v => set('viajantes', v)}/>
@@ -809,7 +898,7 @@ function DiaADia({ a, onChange }) {
           <div style={{ fontSize:13, fontWeight:700, color:T.gold, paddingTop:8 }}>Dia {i + 1}</div>
           <div style={{ display:'grid', gap:6 }}>
             <Field type="date" value={d.data} onChange={v => setDia(i, 'data', v)}/>
-            <Field value={d.cidade} ph="Cidade" onChange={v => setDia(i, 'cidade', v)}/>
+            <Field value={d.cidade} ph="Cidade" onChange={v => setDia(i, 'cidade', v)} list="ass-cidades"/>
           </div>
           <textarea value={d.programacao} rows={3} placeholder="Manhã: …  Tarde: …  Noite: …"
             onChange={e => setDia(i, 'programacao', e.target.value)} style={{ ...inputS, resize:'vertical' }}/>
@@ -876,7 +965,7 @@ function Items({ s, a, onChange }) {
                         <label style={{ ...inputS, display:'flex', gap:8, alignItems:'center', cursor:'pointer' }}>
                           <input type="checkbox" checked={!!it[f.k]} onChange={e => setItem(i, f.k, e.target.checked)}/> {it[f.k] ? 'Incluso' : 'Não incluso'}
                         </label></div>)
-                    : <Field label={f.l} type={f.t || 'text'} ph={f.ph} value={it[f.k]} onChange={v => setItem(i, f.k, v)}/>}
+                    : <Field label={f.l} type={f.t || 'text'} ph={f.ph} value={it[f.k]} onChange={v => setItem(i, f.k, v)} list={f.k === 'cidade' ? 'ass-cidades' : undefined}/>}
                 </div>
               ))}
             </div>
@@ -938,7 +1027,7 @@ function Templates({ s, a }) {
 
 /* ─── Modal: nova assessoria ─────────────────────────── */
 function NewModal({ onClose, onSave }) {
-  const [f, setF] = useState({ cliente:'', phone:'', email:'', origem:'', destino:'', inicio:'', fim:'', viajantes:'', responsavel:'Joseph', contratado_em:todayISO(), valor:'', passageiros:[] })
+  const [f, setF] = useState({ cliente:'', phone:'', email:'', origem:'', destino:'', cidades:[], inicio:'', fim:'', viajantes:'', responsavel:'Joseph', contratado_em:todayISO(), valor:'', passageiros:[] })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
   const save = async () => { setBusy(true); await onSave(f); setBusy(false) }
@@ -955,8 +1044,9 @@ function NewModal({ onClose, onSave }) {
           <div style={{ gridColumn:'span 2' }}><Field label="Cliente *" value={f.cliente} onChange={v => set('cliente', v)} ph="João e Família"/></div>
           <Field label="WhatsApp" value={f.phone} onChange={v => set('phone', v)} ph="11999999999"/>
           <Field label="E-mail" value={f.email} onChange={v => set('email', v)}/>
-          <Field label="Origem" value={f.origem} onChange={v => set('origem', v)} ph="São Paulo (GRU)"/>
-          <Field label="Destino" value={f.destino} onChange={v => set('destino', v)} ph="Europa — Lisboa, Paris, Roma"/>
+          <div style={{ gridColumn:'span 2' }}><CityPicker label="Origem" value={f.origem} onChange={v => set('origem', v)} groups={ORIGENS_BR} ph="Cidade de saída — ex.: Brasília"/></div>
+          <div style={{ gridColumn:'span 2' }}><CityPicker multi label="Cidades de destino" value={f.cidades} groups={DESTINOS} ph="Digite e escolha as cidades — ex.: Lisboa, Paris, Roma"
+            onChange={v => setF(p => ({ ...p, cidades:v, destino:v.join(', ') }))}/></div>
           <Field label="Ida" type="date" value={f.inicio} onChange={v => set('inicio', v)}/>
           <Field label="Volta" type="date" value={f.fim} onChange={v => set('fim', v)}/>
           <Field label="Nº de viajantes" type="number" value={f.viajantes} onChange={v => set('viajantes', v)}/>
