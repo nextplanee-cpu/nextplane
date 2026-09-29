@@ -194,7 +194,7 @@ function alertas(a) {
 function fillTemplate(txt, a) {
   const vars = {
     cliente: a.cliente || '', primeiro_nome: String(a.cliente || '').trim().split(/\s+/)[0] || '',
-    destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
+    origem: a.origem || '', destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
     dias: daysTo(a.inicio) ?? '—',
     localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${v.trecho || 'Voo'}${v.data ? ` (${fmtD(v.data)})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
     roteiro: (a.roteiro_dias || []).filter(d => d.programacao || d.cidade).map((d, i) => `*Dia ${i + 1}${d.data ? ` — ${fmtD(d.data)}` : ''}${d.cidade ? ` · ${d.cidade}` : ''}*\n${d.programacao || ''}`).join('\n\n') || '[roteiro]',
@@ -312,7 +312,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   const create = async form => {
     const base = {
-      ...form, status:'andamento', checks:{}, na:{}, aereo:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros:[],
+      ...form, status:'andamento', checks:{}, na:{}, aereo:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
       proxima_acao:'Agendar reunião de onboarding', proxima_data:'',
       log:[{ t:new Date().toISOString(), msg:'Assessoria criada' }],
     }
@@ -399,7 +399,7 @@ function Overview({ list, onOpen, onNew, mode }) {
   const rows = list
     .filter(a => fSt === 'all' || (fSt === 'ativas' ? ATIVA(a) : a.status === fSt))
     .filter(a => fResp === 'all' || a.responsavel === fResp)
-    .filter(a => !q || `${a.cliente} ${a.destino}`.toLowerCase().includes(q.toLowerCase()))
+    .filter(a => !q || `${a.cliente} ${a.origem || ''} ${a.destino}`.toLowerCase().includes(q.toLowerCase()))
     .sort((x, y) => (x.inicio || '9999').localeCompare(y.inicio || '9999'))
 
   return (
@@ -427,7 +427,7 @@ function Overview({ list, onOpen, onNew, mode }) {
         <div style={{ display:'flex', gap:10, padding:14, flexWrap:'wrap', borderBottom:T.borderN }}>
           <div style={{ position:'relative', flex:'1 1 220px' }}>
             <Search size={14} style={{ position:'absolute', left:10, top:10, color:T.muted }}/>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente ou destino…"
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente, origem ou destino…"
               style={{ ...inputS, paddingLeft:30 }}/>
           </div>
           <select value={fSt} onChange={e => setFSt(e.target.value)} style={{ ...inputS, width:'auto', background:'#111827' }}>
@@ -472,7 +472,10 @@ function Overview({ list, onOpen, onNew, mode }) {
                         <div style={{ fontWeight:700 }}>{a.cliente}</div>
                         <div style={{ fontSize:11, color:T.muted }}>{a.viajantes || '?'} viajante(s)</div>
                       </td>
-                      <td style={{ padding:'12px 14px' }}>{a.destino || '—'}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        <div>{a.destino || '—'}</div>
+                        {a.origem && <div style={{ fontSize:11, color:T.muted }}>saindo de {a.origem}</div>}
+                      </td>
                       <td style={{ padding:'12px 14px' }}>
                         <div>{fmtMes(a.inicio)}</div>
                         {dias !== null && dias >= 0 && ATIVA(a) && <div style={{ fontSize:11, color:dias <= 30 ? T.warn : T.muted }}>em {dias} dias</div>}
@@ -523,7 +526,7 @@ function Ficha({ a, onChange, onBack, onDelete, saving }) {
           <button onClick={onBack} title="Voltar" style={{ background:'rgba(255,255,255,0.05)', border:T.borderN, borderRadius:8,
             color:T.text, cursor:'pointer', padding:8, display:'flex' }}><ArrowLeft size={16}/></button>
           <div>
-            <h2 style={{ fontSize:21, fontWeight:700, margin:0 }}>{a.cliente} <span style={{ color:T.gold }}>— {a.destino || 'destino a definir'}</span></h2>
+            <h2 style={{ fontSize:21, fontWeight:700, margin:0 }}>{a.cliente} <span style={{ color:T.gold }}>— {a.origem ? `${a.origem} → ` : ''}{a.destino || 'destino a definir'}</span></h2>
             <div style={{ display:'flex', gap:14, flexWrap:'wrap', fontSize:12, color:T.muted, marginTop:6 }}>
               <span style={{ display:'inline-flex', gap:5, alignItems:'center' }}><Calendar size={12}/> {periodo(a)}</span>
               <span style={{ display:'inline-flex', gap:5, alignItems:'center' }}><Users size={12}/> {a.viajantes || '?'} viajante(s)</span>
@@ -555,7 +558,9 @@ function Ficha({ a, onChange, onBack, onDelete, saving }) {
         {/* Checklist operacional */}
         <Card style={{ padding:10 }}>
           <div style={{ fontSize:11, color:T.muted, padding:'4px 8px 8px', fontWeight:700, letterSpacing:0.5 }}>CHECKLIST OPERACIONAL</div>
-          <StepBtn active={tab === 'geral'} onClick={() => setTab('geral')} icon="📋" name="Visão geral e viajantes"/>
+          <StepBtn active={tab === 'geral'} onClick={() => setTab('geral')} icon="📋" name="Visão geral"/>
+          <StepBtn active={tab === 'pax'} onClick={() => setTab('pax')} icon="🛂" name="Passageiros"
+            sub={`${(a.passageiros || []).length} de ${a.viajantes || '?'}`}/>
           {STEPS.map((s, i) => {
             const p = progress(a, s)
             return (
@@ -569,7 +574,14 @@ function Ficha({ a, onChange, onBack, onDelete, saving }) {
 
         {/* Conteúdo da etapa */}
         <div style={{ minWidth:0 }}>
-          {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange}/> : <StepPanel s={STEP[tab]} a={a} onChange={onChange}/>}
+          {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange}/>
+            : tab === 'pax' ? (
+              <Card>
+                <div style={{ fontSize:17, fontWeight:700, marginBottom:4 }}>🛂 Passageiros</div>
+                <div style={{ fontSize:12, color:T.muted, marginBottom:14 }}>Dados de cada viajante para emissões, seguro e reservas.</div>
+                <Passageiros list={a.passageiros || []} setList={fn => onChange(x => ({ ...x, passageiros: fn(x.passageiros || []) }))}/>
+              </Card>)
+            : <StepPanel s={STEP[tab]} a={a} onChange={onChange}/>}
         </div>
       </div>
       <style>{`@media (max-width: 760px) { .ass-grid { grid-template-columns: 1fr !important; } }`}</style>
@@ -591,10 +603,71 @@ const StepBtn = ({ active, onClick, icon, name, sub, pct, color, current }) => (
   </div>
 )
 
+/* ─── Passageiros: dados para emissão ────────────────── */
+const PAX_FIELDS = [
+  { k:'nome', l:'Nome completo (igual ao passaporte)', w:2 },
+  { k:'cpf', l:'CPF', ph:'000.000.000-00' },
+  { k:'nascimento', l:'Nascimento', t:'date' },
+  { k:'sexo', l:'Sexo', t:'select', opts:['','Feminino','Masculino'] },
+  { k:'nacionalidade', l:'Nacionalidade' },
+  { k:'passaporte_num', l:'Nº do passaporte' },
+  { k:'passaporte', l:'Validade do passaporte', t:'date' },
+  { k:'telefone', l:'Telefone', ph:'11999999999' },
+  { k:'email', l:'E-mail' },
+  { k:'fidelidade', l:'Programas de fidelidade', ph:'Smiles 123… · LATAM Pass 456…', w:2 },
+  { k:'obs', l:'Observações', ph:'Assento, alimentação, necessidades especiais…', w:2 },
+]
+const novoPax = () => ({ id:uid(), nome:'', cpf:'', nascimento:'', sexo:'', nacionalidade:'Brasileira', passaporte_num:'', passaporte:'', telefone:'', email:'', fidelidade:'', obs:'' })
+const paxTexto = p => [
+  `Nome: ${p.nome || '—'}`, p.cpf && `CPF: ${p.cpf}`, p.nascimento && `Nascimento: ${fmtD(p.nascimento)}/${p.nascimento.slice(0, 4)}`,
+  p.sexo && `Sexo: ${p.sexo}`, p.nacionalidade && `Nacionalidade: ${p.nacionalidade}`,
+  p.passaporte_num && `Passaporte: ${p.passaporte_num}${p.passaporte ? ` (validade ${fmtD(p.passaporte)}/${p.passaporte.slice(0, 4)})` : ''}`,
+  p.telefone && `Telefone: ${p.telefone}`, p.email && `E-mail: ${p.email}`, p.fidelidade && `Fidelidade: ${p.fidelidade}`, p.obs && `Obs.: ${p.obs}`,
+].filter(Boolean).join('\n')
+
+function Passageiros({ list = [], setList, compact }) {
+  const [copied, setCopied] = useState(null)
+  const setP = (i, k, v) => setList(prev => prev.map((p, j) => j === i ? { ...p, [k]: v } : p))
+  const copiar = async (txt, key) => {
+    try { await navigator.clipboard.writeText(txt); setCopied(key); setTimeout(() => setCopied(null), 1500) } catch {}
+  }
+  return (
+    <div style={{ display:'grid', gap:10 }}>
+      {list.length === 0 && <div style={{ fontSize:12, color:T.muted }}>
+        Cadastre os passageiros com os dados para emissão. O CRM avisa se algum passaporte vencer em menos de 6 meses após a volta.
+      </div>}
+      {list.map((p, i) => (
+        <div key={p.id} style={{ background:'rgba(255,255,255,0.03)', border:T.borderN, borderRadius:10, padding:12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, gap:8 }}>
+            <div style={{ fontWeight:700, fontSize:13 }}>👤 Passageiro {i + 1}{p.nome ? ` — ${p.nome}` : ''}</div>
+            <div style={{ display:'flex', gap:6 }}>
+              {!compact && <Btn small outline onClick={() => copiar(paxTexto(p), p.id)}><Copy size={12}/> {copied === p.id ? 'Copiado!' : 'Copiar dados'}</Btn>}
+              <button onClick={() => { if (!p.nome || window.confirm(`Remover ${p.nome}?`)) setList(prev => prev.filter((_, j) => j !== i)) }}
+                title="Remover" style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><Trash2 size={14}/></button>
+            </div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8 }}>
+            {PAX_FIELDS.map(f => (
+              <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
+                {f.t === 'select'
+                  ? <Select label={f.l} value={p[f.k] || ''} opts={f.opts.map(o => [o, o || '—'])} onChange={v => setP(i, f.k, v)}/>
+                  : <Field label={f.l} type={f.t || 'text'} ph={f.ph} value={p[f.k]} onChange={v => setP(i, f.k, v)}/>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        <Btn small outline onClick={() => setList(prev => [...prev, novoPax()])}><Plus size={12}/> Adicionar passageiro</Btn>
+        {!compact && list.length > 1 && <Btn small outline onClick={() => copiar(list.map(paxTexto).join('\n\n'), 'all')}>
+          <Copy size={12}/> {copied === 'all' ? 'Copiado!' : 'Copiar todos'}</Btn>}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Visão geral: dados, viajantes, próxima ação, histórico ── */
 function Geral({ a, set, onChange }) {
-  const pax = a.passageiros || []
-  const setPax = (i, k, v) => onChange(x => ({ ...x, passageiros: x.passageiros.map((p, j) => j === i ? { ...p, [k]: v } : p) }))
   const aereo = a.aereo || []
   const milhas = aereo.reduce((s, v) => s + (Number(v.milhas) || 0), 0)
   const taxas  = aereo.reduce((s, v) => s + (Number(v.taxas) || 0), 0)
@@ -626,6 +699,7 @@ function Geral({ a, set, onChange }) {
           <Field label="Cliente" value={a.cliente} onChange={v => set('cliente', v)}/>
           <Field label="WhatsApp" value={a.phone} onChange={v => set('phone', v)} ph="11999999999"/>
           <Field label="E-mail" value={a.email} onChange={v => set('email', v)}/>
+          <Field label="Origem" value={a.origem} onChange={v => set('origem', v)} ph="São Paulo (GRU)"/>
           <Field label="Destino" value={a.destino} onChange={v => set('destino', v)}/>
           <Field label="Ida" type="date" value={a.inicio} onChange={v => set('inicio', v)}/>
           <Field label="Volta" type="date" value={a.fim} onChange={v => set('fim', v)}/>
@@ -637,23 +711,6 @@ function Geral({ a, set, onChange }) {
         <datalist id="ass-resp"><option value="Joseph"/></datalist>
       </Card>
 
-      <Card>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-          <div style={{ fontWeight:700 }}>🛂 Viajantes e passaportes</div>
-          <Btn small outline onClick={() => onChange(x => ({ ...x, passageiros:[...(x.passageiros || []), { id:uid(), nome:'', nascimento:'', passaporte:'' }] }))}>
-            <Plus size={12}/> Viajante
-          </Btn>
-        </div>
-        {pax.length === 0 && <div style={{ fontSize:12, color:T.muted }}>Cadastre os viajantes para o CRM avisar se algum passaporte estiver perto de vencer.</div>}
-        {pax.map((p, i) => (
-          <div key={p.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 34px', gap:8, marginBottom:8, alignItems:'end' }}>
-            <Field label={i === 0 ? 'Nome (igual ao passaporte)' : null} value={p.nome} onChange={v => setPax(i, 'nome', v)}/>
-            <Field label={i === 0 ? 'Nascimento' : null} type="date" value={p.nascimento} onChange={v => setPax(i, 'nascimento', v)}/>
-            <Field label={i === 0 ? 'Validade do passaporte' : null} type="date" value={p.passaporte} onChange={v => setPax(i, 'passaporte', v)}/>
-            <IconDel onClick={() => onChange(x => ({ ...x, passageiros: x.passageiros.filter((_, j) => j !== i) }))}/>
-          </div>
-        ))}
-      </Card>
 
       <Card>
         <div style={{ fontWeight:700, marginBottom:10 }}>🕓 Histórico</div>
@@ -881,7 +938,7 @@ function Templates({ s, a }) {
 
 /* ─── Modal: nova assessoria ─────────────────────────── */
 function NewModal({ onClose, onSave }) {
-  const [f, setF] = useState({ cliente:'', phone:'', email:'', destino:'', inicio:'', fim:'', viajantes:'', responsavel:'Joseph', contratado_em:todayISO(), valor:'' })
+  const [f, setF] = useState({ cliente:'', phone:'', email:'', origem:'', destino:'', inicio:'', fim:'', viajantes:'', responsavel:'Joseph', contratado_em:todayISO(), valor:'', passageiros:[] })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
   const save = async () => { setBusy(true); await onSave(f); setBusy(false) }
@@ -889,7 +946,7 @@ function NewModal({ onClose, onSave }) {
     <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex',
       alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
       <div onClick={e => e.stopPropagation()} className="crm-scroll"
-        style={{ background:T.card, borderRadius:14, padding:24, width:560, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', border:T.border }}>
+        style={{ background:T.card, borderRadius:14, padding:24, width:680, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', border:T.border }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
           <div style={{ fontSize:18, fontWeight:700 }}>🧳 Nova assessoria</div>
           <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><X size={20}/></button>
@@ -898,7 +955,8 @@ function NewModal({ onClose, onSave }) {
           <div style={{ gridColumn:'span 2' }}><Field label="Cliente *" value={f.cliente} onChange={v => set('cliente', v)} ph="João e Família"/></div>
           <Field label="WhatsApp" value={f.phone} onChange={v => set('phone', v)} ph="11999999999"/>
           <Field label="E-mail" value={f.email} onChange={v => set('email', v)}/>
-          <div style={{ gridColumn:'span 2' }}><Field label="Destino" value={f.destino} onChange={v => set('destino', v)} ph="Europa — Lisboa, Paris, Roma"/></div>
+          <Field label="Origem" value={f.origem} onChange={v => set('origem', v)} ph="São Paulo (GRU)"/>
+          <Field label="Destino" value={f.destino} onChange={v => set('destino', v)} ph="Europa — Lisboa, Paris, Roma"/>
           <Field label="Ida" type="date" value={f.inicio} onChange={v => set('inicio', v)}/>
           <Field label="Volta" type="date" value={f.fim} onChange={v => set('fim', v)}/>
           <Field label="Nº de viajantes" type="number" value={f.viajantes} onChange={v => set('viajantes', v)}/>
@@ -906,6 +964,11 @@ function NewModal({ onClose, onSave }) {
           <Field label="Data de contratação" type="date" value={f.contratado_em} onChange={v => set('contratado_em', v)}/>
           <Field label="Valor da assessoria (R$)" type="number" value={f.valor} onChange={v => set('valor', v)}/>
           <datalist id="ass-resp-new"><option value="Joseph"/></datalist>
+        </div>
+        <div style={{ marginTop:18, paddingTop:14, borderTop:T.borderN }}>
+          <div style={{ fontWeight:700, marginBottom:4 }}>🛂 Passageiros</div>
+          <div style={{ fontSize:11, color:T.muted, marginBottom:10 }}>Opcional agora — dá para completar depois na ficha.</div>
+          <Passageiros compact list={f.passageiros} setList={fn => setF(p => ({ ...p, passageiros: fn(p.passageiros) }))}/>
         </div>
         <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:18 }}>
           <Btn outline onClick={onClose}>Cancelar</Btn>
