@@ -42,11 +42,16 @@ const STEPS = [
     goal:'Estruturar a viagem antes das emissões.', out:'Roteiro prévio aprovado pelo cliente.',
     checks:['Destinos definidos','Ordem dos destinos','Datas aproximadas','Deslocamentos entre cidades','Tempo em cada destino','Roteiro prévio aprovado pelo cliente'] },
   { k:'aereo', icon:'✈️', name:'Emissão de passagem aérea', short:'Aéreo', color:'#3B82F6', kind:'items', unit:'trechos emitidos', add:'trecho',
-    statuses:AEREO_ST, done:['Emitido'], blank:{ de:'', para:'', data:'', cia:'', voo:'', horario:'', valor:'', localizador:'', link:'', status:'Pendente' },
+    statuses:AEREO_ST, done:['Emitido'], blank:{ tipo:'Só ida', de:'', para:'', data:'', cia:'', voo:'', horario:'', data_volta:'', voo_volta:'', horario_volta:'', valor:'', localizador:'', link:'', status:'Pendente' },
     fields:[
       { k:'de', l:'Origem', t:'airport', ph:'Aeroporto ou sigla — ex.: BSB', w:2 }, { k:'para', l:'Destino', t:'airport', ph:'Aeroporto ou sigla — ex.: LIS', w:2 },
-      { k:'data', l:'Data', t:'date' }, { k:'cia', l:'Companhia aérea', t:'airline', ph:'Companhia ou sigla — ex.: TAP, TP', w:2 },
-      { k:'voo', l:'Nº do voo', ph:'TP 88' }, { k:'horario', l:'Horário', t:'time' }, { k:'valor', l:'Valor R$', t:'number' },
+      { k:'data', l:'Data', lIda:'Data da ida', t:'date' }, { k:'cia', l:'Companhia aérea', t:'airline', ph:'Companhia ou sigla — ex.: TAP, TP', w:2 },
+      { k:'voo', l:'Nº do voo', lIda:'Nº do voo (ida)', ph:'TP 88' }, { k:'horario', l:'Horário', lIda:'Horário (ida)', t:'time' },
+      { k:'_volta', sep:'⇄ Volta', volta:true },
+      { k:'data_volta', l:'Data da volta', t:'date', volta:true }, { k:'voo_volta', l:'Nº do voo (volta)', ph:'TP 87', volta:true },
+      { k:'horario_volta', l:'Horário (volta)', t:'time', volta:true },
+      { k:'_fim_volta', sep:' ', volta:true },
+      { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
   { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
@@ -98,7 +103,8 @@ const ciaDe = x => {
   const hit = CIAS.flatMap(g => g.cidades).find(c => semAc(c.nome).endsWith(`(${t})`) || semAc(c.nome).startsWith(t))
   return hit ? hit.nome : x
 }
-const trechoDe = v => (v.de || v.para ? `${v.de || '?'} → ${v.para || '?'}` : v.trecho || '')
+const idaVolta = v => v.tipo === 'Ida e volta'
+const trechoDe = v => (v.de || v.para ? `${v.de || '?'} ${idaVolta(v) ? '⇄' : '→'} ${v.para || '?'}` : v.trecho || '')
 const migrate = a => {
   // trechos antigos em texto livre ("GRU → LIS") viram origem/destino
   // e companhia em texto livre ("tap") vira a companhia da lista
@@ -216,7 +222,7 @@ function fillTemplate(txt, a) {
     cliente: a.cliente || '', primeiro_nome: String(a.cliente || '').trim().split(/\s+/)[0] || '',
     origem: a.origem || '', destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
     dias: daysTo(a.inicio) ?? '—',
-    localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${trechoDe(v) || 'Voo'}${v.voo ? ` · ${v.voo}` : ''}${v.data ? ` (${fmtD(v.data)})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
+    localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${trechoDe(v) || 'Voo'}${v.voo ? ` · ${v.voo}` : ''}${v.data ? ` (${fmtD(v.data)}${idaVolta(v) && v.data_volta ? ` a ${fmtD(v.data_volta)}` : ''})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
     roteiro: (a.roteiro_dias || []).filter(d => d.programacao || d.cidade).map((d, i) => `*Dia ${i + 1}${d.data ? ` — ${fmtD(d.data)}` : ''}${d.cidade ? ` · ${d.cidade}` : ''}*\n${d.programacao || ''}`).join('\n\n') || '[roteiro]',
     hoteis: (a.hotel || []).filter(h => h.hotel).map(h => `🏨 ${h.cidade ? `${h.cidade} — ` : ''}${h.hotel} (${fmtD(h.checkin)} a ${fmtD(h.checkout)})`).join('\n') || '[hotéis]',
   }
@@ -983,7 +989,23 @@ function Items({ s, a, onChange }) {
               <button onClick={() => del(i)} title="Remover" style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><Trash2 size={14}/></button>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
-              {s.fields.map(f => (
+              {s.k === 'aereo' && (
+                <div style={{ gridColumn:'1 / -1', display:'flex', gap:6, alignItems:'center' }}>
+                  {['Só ida', 'Ida e volta'].map(t => {
+                    const on = (it.tipo || 'Só ida') === t
+                    return (
+                      <button key={t} onClick={() => setItem(i, 'tipo', t)}
+                        style={{ fontSize:12, padding:'6px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:700,
+                          background:on ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.03)', color:on ? T.gold : T.muted,
+                          border:on ? '1px solid rgba(212,175,55,0.45)' : T.borderN }}>
+                        {t === 'Só ida' ? '→ Só ida' : '⇄ Ida e volta'}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {s.fields.filter(f => !f.volta || idaVolta(it)).map(f => (idaVolta(it) && f.lIda ? { ...f, l:f.lIda } : f)).map(f => (
+                f.sep ? <div key={f.k} style={{ gridColumn:'1 / -1', fontSize:12, fontWeight:700, color:T.gold, borderTop:f.sep.trim() ? T.borderN : 'none', paddingTop:f.sep.trim() ? 10 : 0, marginTop:f.sep.trim() ? 4 : -8 }}>{f.sep}</div> :
                 <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
                   {f.t === 'airport' || f.t === 'airline'
                     ? <CityPicker label={f.l} value={it[f.k]} groups={f.t === 'airport' ? AEROPORTOS : CIAS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
