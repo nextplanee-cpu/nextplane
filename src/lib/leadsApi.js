@@ -1,33 +1,39 @@
 /**
  * Next Plane — acesso aos leads na nuvem (via /api/leads na Vercel).
- * A chave de acesso do CRM fica salva só neste navegador.
+ * A sessão fica num cookie httpOnly (JWT do Supabase) — nenhuma chave ou token
+ * é guardado no navegador nem acessível pelo JavaScript da página.
  */
 
-const KEY_STORAGE = 'crm_access_key'
 const COLORS = ['#D4AF37','#8B5CF6','#3B82F6','#22C55E','#F97316','#EC4899','#06B6D4']
-
-export const getAccessKey = () => {
-  try { return localStorage.getItem(KEY_STORAGE) || '' } catch { return '' }
-}
-export const setAccessKey = key => {
-  try { key ? localStorage.setItem(KEY_STORAGE, key) : localStorage.removeItem(KEY_STORAGE) } catch {}
-}
 
 export class ApiError extends Error {
   constructor(status, code) { super(code || `HTTP ${status}`); this.status = status }
 }
 
-async function call(method, { query = '', body, key = getAccessKey() } = {}) {
-  const res = await fetch(`/api/leads${query}`, {
+/* Chamada autenticada; sessão expirada avisa o CRM para voltar à tela de login */
+export async function apiFetch(url, { method = 'GET', body } = {}) {
+  const res = await fetch(url, {
     method,
-    headers: { 'Content-Type': 'application/json', 'x-crm-key': key },
+    credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   })
   let data = null
   try { data = await res.json() } catch {}
+  if (res.status === 401) window.dispatchEvent(new Event('crm:unauthorized'))
   if (!res.ok) throw new ApiError(res.status, data?.error)
   return data
 }
+
+const call = (method, { query = '', body } = {}) => apiFetch(`/api/leads${query}`, { method, body })
+
+/* ── Sessão ── */
+export const sessionMe   = () => fetch('/api/auth?action=me', { credentials: 'same-origin' })
+  .then(async r => ({ status: r.status, data: await r.json().catch(() => ({})) }))
+export const login       = (email, password) => apiFetch('/api/auth?action=login', { method: 'POST', body: { email, password } })
+export const logout      = () => apiFetch('/api/auth?action=logout', { method: 'POST' }).catch(() => {})
+export const encryptOld  = () => apiFetch('/api/auth?action=encrypt', { method: 'POST' })
+export const fetchAudit  = () => apiFetch('/api/auth?action=audit')
 
 /* Linha do banco → formato usado pelas telas do CRM */
 export function rowToLead(r) {
@@ -45,21 +51,14 @@ export function rowToLead(r) {
   }
 }
 
-export const fetchLeads  = key => call('GET', { key }).then(rows => rows.map(rowToLead))
+export const fetchLeads  = () => call('GET').then(rows => rows.map(rowToLead))
 export const createLead  = lead => call('POST', { body: lead }).then(rowToLead)
 export const patchLead   = (id, fields) => call('PATCH', { query: `?id=${encodeURIComponent(id)}`, body: fields }).then(rowToLead)
 export const removeLead  = id => call('DELETE', { query: `?id=${encodeURIComponent(id)}` })
 
 /* Integração Meta: status (GET) e ligar app à Página (POST) */
-async function metaSetup(method) {
-  const res = await fetch('/api/meta-setup', { method, headers: { 'x-crm-key': getAccessKey() } })
-  let data = null
-  try { data = await res.json() } catch {}
-  if (!res.ok) throw new ApiError(res.status, data?.error)
-  return data
-}
-export const metaStatus    = () => metaSetup('GET')
-export const metaSubscribe = () => metaSetup('POST')
+export const metaStatus    = () => apiFetch('/api/meta-setup')
+export const metaSubscribe = () => apiFetch('/api/meta-setup', { method: 'POST' })
 
 /* Funil público → nuvem (não precisa de chave) */
 export async function sendFunnelLead(lead) {

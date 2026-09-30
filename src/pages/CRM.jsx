@@ -5,12 +5,13 @@ import {
   MessageCircle, ChevronRight, LogOut, Bell,
   Phone, Mail, MapPin, Calendar, Star, TrendingUp,
   CheckCircle2, AlertCircle, Clock, Filter,
-  Cloud, CloudOff, Megaphone, RefreshCw, Trash2, Briefcase
+  Cloud, Megaphone, RefreshCw, Trash2, Briefcase
 } from 'lucide-react'
 import Assessorias from './crm/Assessorias'
+import AuthGate from './crm/AuthGate'
 import {
-  getAccessKey, setAccessKey, fetchLeads, createLead, patchLead, removeLead, waLink,
-  metaStatus, metaSubscribe,
+  fetchLeads, createLead, patchLead, removeLead, waLink,
+  metaStatus, metaSubscribe, encryptOld, fetchAudit,
 } from '../lib/leadsApi'
 
 /* ─── Design tokens ─────────────────────────────────── */
@@ -161,34 +162,29 @@ const DailyBars = ({ leads, days }) => {
 }
 
 /* ─── MAIN CRM ───────────────────────────────────────── */
+/* Só abre o CRM com login válido (ver crm/AuthGate.jsx) */
 export default function CRM() {
+  return <AuthGate>{(user, onLogout) => <CRMApp user={user} onLogout={onLogout}/>}</AuthGate>
+}
+
+function CRMApp({ user, onLogout }) {
+  const isAdmin = user.role === 'admin'
   const [view,       setView]       = useState('dashboard')
-  const [leads,      setLeads]      = useState(() => {
-    try {
-      const saved = localStorage.getItem('crm_leads')
-      return saved ? normLeads(JSON.parse(saved)) : LEADS_INIT
-    } catch { return LEADS_INIT }
-  })
+  const [leads,      setLeads]      = useState([])
   const [search,     setSearch]     = useState('')
   const [fTemp,      setFTemp]      = useState('all')
   const [fStage,     setFStage]     = useState('all')
   const [selected,   setSelected]   = useState(null)
   const [showNew,    setShowNew]     = useState(false)
   const [newLead,    setNewLead]     = useState({ name:'', dest:'', value:'', type:'Internacional', temp:'Morno', source:'WhatsApp', stage:0, phone:'', email:'', cidade:'', obs:'' })
-  const [nextId,     setNextId]     = useState(() => {
-    try {
-      const saved = localStorage.getItem('crm_next_id')
-      return saved ? parseInt(saved) : 13
-    } catch { return 13 }
-  })
-
-  /* ── Nuvem (Supabase via /api/leads) ──
-     mode: 'local' = dados só neste navegador · 'cloud' = dados compartilhados na nuvem */
-  const [mode,       setMode]       = useState('local')
+  /* ── Nuvem (Supabase via /api/leads) — única fonte de dados, atrás do login ──
+     Nada de lead fica salvo no navegador. */
+  const mode = 'cloud'
   const [cloudMsg,   setCloudMsg]   = useState('')
   const [showCloud,  setShowCloud]  = useState(false)
-  const [keyInput,   setKeyInput]   = useState('')
   const [syncing,    setSyncing]    = useState(false)
+  const [secInfo,    setSecInfo]    = useState('')     // resultado das ações de segurança (admin)
+  const [auditLog,   setAuditLog]   = useState(null)
   const [metaPeriod, setMetaPeriod] = useState('30')
   const [metaInfo,   setMetaInfo]   = useState(null)   // status da integração Meta
   const [metaBusy,   setMetaBusy]   = useState(false)
@@ -196,93 +192,48 @@ export default function CRM() {
   const checkMeta = async (subscribe = false) => {
     setMetaBusy(true)
     try { setMetaInfo(await (subscribe ? metaSubscribe() : metaStatus())) }
-    catch (err) { setMetaInfo({ ok:false, missing:[], error: err.status === 401 ? 'Chave do CRM inválida.' : 'Não foi possível verificar agora.' }) }
+    catch (err) { setMetaInfo({ ok:false, missing:[], error: err.status === 403 ? 'Só o administrador pode ver a integração.' : 'Não foi possível verificar agora.' }) }
     finally { setMetaBusy(false) }
   }
 
   // Verifica a integração ao abrir a aba Leads Meta na nuvem
   useEffect(() => { if (view === 'meta' && mode === 'cloud' && !metaInfo) checkMeta() }, [view, mode])
 
-  const loadCloud = async (key = getAccessKey(), { quiet = false } = {}) => {
-    if (!key) return false
+  const loadCloud = async ({ quiet = false } = {}) => {
     if (!quiet) setSyncing(true)
     try {
-      const data = await fetchLeads(key)
-      setAccessKey(key)
-      setLeads(normLeads(data))
-      setMode('cloud')
+      setLeads(normLeads(await fetchLeads()))
       setCloudMsg('')
       return true
     } catch (err) {
-      if (err.status === 401) { setAccessKey(''); setMode('local'); setCloudMsg('Chave de acesso inválida.') }
-      else if (err.status === 503) setCloudMsg('A nuvem ainda não foi configurada na Vercel.')
-      else if (!quiet) setCloudMsg('Não foi possível conectar à nuvem agora.')
+      if (err.status === 503) setCloudMsg('A nuvem ainda não foi configurada na Vercel.')
+      else if (!quiet) setCloudMsg('Não foi possível carregar os leads agora.')
       return false
     } finally {
       if (!quiet) setSyncing(false)
     }
   }
 
-  // Conecta na nuvem ao abrir, se já houver chave salva
-  useEffect(() => { if (getAccessKey()) loadCloud() }, [])
-
-  // Na nuvem: busca leads novos (ex.: Meta Ads) a cada 20s
+  // Carrega ao abrir e busca leads novos (ex.: Meta Ads) a cada 20s
   useEffect(() => {
-    if (mode !== 'cloud') return
-    const interval = setInterval(() => loadCloud(undefined, { quiet: true }), 20000)
+    loadCloud()
+    const interval = setInterval(() => loadCloud({ quiet: true }), 20000)
     return () => clearInterval(interval)
-  }, [mode])
+  }, [])
 
-  const connectCloud = async () => {
-    const ok = await loadCloud(keyInput.trim())
-    if (ok) { setShowCloud(false); setKeyInput('') }
-  }
-
-  const disconnectCloud = () => {
-    setAccessKey('')
-    setMode('local')
+  /* ── Segurança (admin): criptografar registros antigos e ver acessos ── */
+  const runEncrypt = async () => {
+    setSecInfo('Criptografando…')
     try {
-      const saved = localStorage.getItem('crm_leads')
-      setLeads(normLeads(saved ? JSON.parse(saved) : LEADS_INIT))
-    } catch { setLeads(LEADS_INIT) }
-    setShowCloud(false)
+      const r = await encryptOld()
+      setSecInfo(`Pronto: ${r.leads} leads e ${r.assessorias} assessorias criptografados.`)
+    } catch (err) {
+      setSecInfo(err.message === 'no_encryption_key' ? 'Falta cadastrar CRM_ENCRYPTION_KEY na Vercel.' : 'Não foi possível criptografar agora.')
+    }
   }
-
-  // Modo local: sincroniza leads do localStorage a cada 3s
-  useEffect(() => {
-    if (mode === 'cloud') return
-    const sync = () => {
-      try {
-        const saved = localStorage.getItem('crm_leads')
-        if (saved) {
-          const parsed = normLeads(JSON.parse(saved))
-          setLeads(prev => {
-            if (JSON.stringify(prev) !== JSON.stringify(parsed)) return parsed
-            return prev
-          })
-        }
-        const savedId = localStorage.getItem('crm_next_id')
-        if (savedId) setNextId(parseInt(savedId))
-      } catch {}
-    }
-    sync()
-    const interval = setInterval(sync, 3000)
-    window.addEventListener('focus', sync)
-    return () => {
-      clearInterval(interval)
-      window.removeEventListener('focus', sync)
-    }
-  }, [mode])
-
-  // Modo local: salva automaticamente sempre que leads mudam
-  useEffect(() => {
-    if (mode === 'cloud') return
-    try { localStorage.setItem('crm_leads', JSON.stringify(leads)) } catch {}
-  }, [leads, mode])
-
-  useEffect(() => {
-    try { localStorage.setItem('crm_next_id', String(nextId)) } catch {}
-  }, [nextId])
+  const loadAudit = async () => {
+    try { setAuditLog(await fetchAudit()) } catch { setSecInfo('Não foi possível carregar o registro de acessos.') }
+  }
 
   /* ── Métricas ── */
   const closed   = leads.filter(l => l.stage === 10 || l.stage === 11)
@@ -308,32 +259,12 @@ export default function CRM() {
 
   const addLead = async () => {
     if (!newLead.name || !newLead.dest) return
-    if (mode === 'cloud') {
-      try {
-        const created = await createLead({ ...newLead, value: parseInt(newLead.value) || 0, consultor: 'Joseph' })
-        setLeads(p => [created, ...p])
-        setShowNew(false)
-        resetNewLead()
-      } catch { alert('Não foi possível salvar o lead na nuvem. Tente de novo.') }
-      return
-    }
-    const words = newLead.name.trim().split(' ')
-    const initials = words.length >= 2
-      ? words[0][0] + words[words.length - 1][0]
-      : words[0].slice(0, 2)
-    const colors = ['#D4AF37','#8B5CF6','#3B82F6','#22C55E','#F97316','#EC4899','#06B6D4']
-    setLeads(p => [...p, {
-      ...newLead,
-      id: nextId,
-      value: parseInt(newLead.value) || 0,
-      initials: initials.toUpperCase(),
-      color: colors[nextId % colors.length],
-      date: new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }).replace('.',''),
-      consultor: 'Joseph',
-    }])
-    setNextId(n => n + 1)
-    setShowNew(false)
-    resetNewLead()
+    try {
+      const created = await createLead({ ...newLead, value: parseInt(newLead.value) || 0, consultor: isAdmin ? 'Joseph' : user.nome })
+      setLeads(p => [created, ...p])
+      setShowNew(false)
+      resetNewLead()
+    } catch { alert('Não foi possível salvar o lead na nuvem. Tente de novo.') }
   }
 
   /* ── Mover estágio ── */
@@ -369,11 +300,9 @@ export default function CRM() {
   /* ── Excluir lead ── */
   const deleteLead = async lead => {
     if (!window.confirm(`Excluir o lead "${lead.name}"? Isso não pode ser desfeito.`)) return
-    if (mode === 'cloud') {
-      try { await removeLead(lead.id) } catch {
-        alert('Não foi possível excluir o lead na nuvem.')
-        return
-      }
+    try { await removeLead(lead.id) } catch (err) {
+      alert(err.status === 403 ? 'Só o administrador pode excluir leads.' : 'Não foi possível excluir o lead na nuvem.')
+      return
     }
     setLeads(p => p.filter(l => l.id !== lead.id))
     setSelected(null)
@@ -709,16 +638,6 @@ export default function CRM() {
             )}
           </div>
         </div>
-
-        {mode !== 'cloud' && (
-          <Card style={{ marginBottom:14, borderLeft:`3px solid ${T.info}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-            <div>
-              <div style={{ fontSize:14, fontWeight:700, marginBottom:3 }}>Conecte o CRM à nuvem</div>
-              <div style={{ fontSize:12, color:T.muted }}>Os leads do Meta Ads chegam na nuvem. Conecte para vê-los aqui em tempo real, em qualquer dispositivo.</div>
-            </div>
-            <Btn onClick={() => setShowCloud(true)}><Cloud size={14}/> Conectar nuvem</Btn>
-          </Card>
-        )}
 
         {mode === 'cloud' && (() => {
           const m = metaInfo
@@ -1200,29 +1119,17 @@ CREATE TABLE activities (
               {semCtato > 0 && (
                 <Badge color={T.err}><AlertCircle size={11}/> {semCtato} sem contato</Badge>
               )}
-              <button onClick={() => setShowCloud(true)} title={mode === 'cloud' ? 'Conectado à nuvem' : 'Dados só neste navegador'}
+              <button onClick={() => setShowCloud(true)} title="Sessão e segurança"
                 style={{ background:'transparent', border:'none', padding:0, cursor:'pointer' }}>
-                {mode === 'cloud'
-                  ? <Badge color={T.success}><Cloud size={11}/> Nuvem</Badge>
-                  : <Badge color={T.warn}><CloudOff size={11}/> Só neste navegador</Badge>}
+                <Badge color={T.success}><Cloud size={11}/> {user.nome} · {isAdmin ? 'Admin' : 'Consultor'}</Badge>
               </button>
               <span style={{ fontSize:12, color:T.muted }}>{leads.length} leads · {fmtR(recReal)} realizados</span>
               <Btn onClick={() => setShowNew(true)} small><Plus size={13}/> Lead</Btn>
-              {mode !== 'cloud' && <button onClick={() => {
-                if (window.confirm('Zerar todos os leads do CRM? Esta ação não pode ser desfeita.')) {
-                  localStorage.removeItem('crm_leads')
-                  localStorage.removeItem('crm_next_id')
-                  setLeads([])
-                  setNextId(1)
-                  setSelected(null)
-                  setView('dashboard')
-                }
-              }} style={{ background:'rgba(239,68,68,0.1)', color:'#EF4444',
-                border:'1px solid rgba(239,68,68,0.25)', borderRadius:8,
-                padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:700,
-                fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:5 }}>
-                🗑 Zerar CRM
-              </button>}
+              <button onClick={onLogout} title="Sair"
+                style={{ background:'transparent', border:T.borderN, borderRadius:8, color:T.muted, padding:'5px 10px',
+                  cursor:'pointer', fontSize:12, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:5 }}>
+                <LogOut size={13}/> Sair
+              </button>
             </div>
           </header>
 
@@ -1438,18 +1345,17 @@ CREATE TABLE activities (
           </div>
         )}
 
-        {/* ── Modal: Nuvem ── */}
+        {/* ── Modal: Sessão e segurança ── */}
         {showCloud && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)',
             display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
             onClick={() => setShowCloud(false)}>
-            <div style={{ background:T.card, borderRadius:14, padding:24, width:440, maxWidth:'100%',
-              border:T.borderN, borderTop:`3px solid ${mode === 'cloud' ? T.success : T.gold}` }}
+            <div style={{ background:T.card, borderRadius:14, padding:24, width: auditLog ? 640 : 440, maxWidth:'100%',
+              maxHeight:'90vh', overflowY:'auto', border:T.borderN, borderTop:`3px solid ${T.success}` }}
               onClick={e => e.stopPropagation()}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <div style={{ fontSize:17, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  {mode === 'cloud' ? <Cloud size={18} color={T.success}/> : <CloudOff size={18} color={T.warn}/>}
-                  {mode === 'cloud' ? 'Conectado à nuvem' : 'Conectar à nuvem'}
+                  <Cloud size={18} color={T.success}/> Sessão e segurança
                 </div>
                 <button onClick={() => setShowCloud(false)}
                   style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}>
@@ -1457,31 +1363,47 @@ CREATE TABLE activities (
                 </button>
               </div>
 
-              {mode === 'cloud' ? (
-                <>
-                  <p style={{ fontSize:13, color:T.muted, lineHeight:1.5, margin:'0 0 16px' }}>
-                    Os leads ficam salvos na nuvem e aparecem em qualquer dispositivo. Os leads do Meta Ads entram sozinhos e a lista atualiza a cada 20 segundos.
-                  </p>
-                  <Btn outline onClick={disconnectCloud} style={{ width:'100%', justifyContent:'center' }}>
-                    <CloudOff size={14}/> Desconectar deste navegador
+              <p style={{ fontSize:13, color:T.muted, lineHeight:1.5, margin:'0 0 14px' }}>
+                Conectado como <b style={{ color:T.text }}>{user.email}</b> ({isAdmin ? 'administrador' : 'consultor'}).
+                {isAdmin ? ' Você vê todos os leads e assessorias.' : ' Você vê só os leads e assessorias atribuídos a você.'}
+                {' '}A sessão expira após 12h sem uso. Os leads do Meta Ads entram sozinhos e a lista atualiza a cada 20 segundos.
+              </p>
+              {cloudMsg && <div style={{ fontSize:12, color:T.err, marginBottom:12 }}>{cloudMsg}</div>}
+
+              {isAdmin && (
+                <div style={{ borderTop:T.borderN, paddingTop:14, marginBottom:14, display:'flex', flexDirection:'column', gap:8 }}>
+                  <Btn outline small onClick={runEncrypt} style={{ justifyContent:'center' }}>
+                    Criptografar dados antigos (telefones, e-mails, passageiros)
                   </Btn>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontSize:13, color:T.muted, lineHeight:1.5, margin:'0 0 14px' }}>
-                    Hoje os leads estão salvos só neste navegador. Digite a chave de acesso do CRM (a mesma cadastrada como <code>CRM_ACCESS_KEY</code> na Vercel) para usar a nuvem.
-                  </p>
-                  <Input label="Chave de acesso" type="password" value={keyInput}
-                    onChange={e => setKeyInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && keyInput.trim() && connectCloud()}
-                    placeholder="••••••••"/>
-                  {cloudMsg && <div style={{ fontSize:12, color:T.err, marginTop:8 }}>{cloudMsg}</div>}
-                  <Btn onClick={connectCloud} disabled={!keyInput.trim() || syncing}
-                    style={{ width:'100%', justifyContent:'center', marginTop:14 }}>
-                    <Cloud size={14}/> {syncing ? 'Conectando…' : 'Conectar'}
+                  <Btn outline small onClick={loadAudit} style={{ justifyContent:'center' }}>
+                    Ver registro de acessos
                   </Btn>
-                </>
+                  {secInfo && <div style={{ fontSize:12, color:T.muted }}>{secInfo}</div>}
+                  {auditLog && (
+                    <div style={{ maxHeight:280, overflowY:'auto', border:T.borderN, borderRadius:8 }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                        <thead><tr>{['Quando','Quem','Ação','Item','IP'].map(h => <th key={h} style={{ ...thS, fontSize:10, padding:'6px 8px' }}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {auditLog.map(a => (
+                            <tr key={a.id}>
+                              <td style={{ ...tdS, fontSize:11, padding:'6px 8px', whiteSpace:'nowrap' }}>{new Date(a.at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
+                              <td style={{ ...tdS, fontSize:11, padding:'6px 8px' }}>{a.user_email}</td>
+                              <td style={{ ...tdS, fontSize:11, padding:'6px 8px', color: /falhou|negado|bloqueado/.test(a.action) ? T.err : T.text }}>{a.action}</td>
+                              <td style={{ ...tdS, fontSize:11, padding:'6px 8px' }}>{a.entity}{a.entity_id ? ` #${a.entity_id}` : ''}</td>
+                              <td style={{ ...tdS, fontSize:11, padding:'6px 8px', color:T.muted }}>{a.ip || '—'}</td>
+                            </tr>
+                          ))}
+                          {!auditLog.length && <tr><td colSpan={5} style={{ ...tdS, color:T.muted }}>Nenhum registro ainda.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               )}
+
+              <Btn outline onClick={onLogout} style={{ width:'100%', justifyContent:'center' }}>
+                <LogOut size={14}/> Sair
+              </Btn>
             </div>
           </div>
         )}

@@ -1,20 +1,10 @@
 /**
  * Next Plane — fichas de Assessoria na nuvem (via /api/assessorias na Vercel).
- * Usa a mesma chave de acesso do CRM.
+ * Usa a mesma sessão (login) do CRM.
  */
-import { getAccessKey, ApiError } from './leadsApi'
+import { apiFetch } from './leadsApi'
 
-async function call(method, { query = '', body } = {}) {
-  const res = await fetch(`/api/assessorias${query}`, {
-    method,
-    headers: { 'Content-Type': 'application/json', 'x-crm-key': getAccessKey() },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  let data = null
-  try { data = await res.json() } catch {}
-  if (!res.ok) throw new ApiError(res.status, data?.error)
-  return data
-}
+const call = (method, { query = '', body } = {}) => apiFetch(`/api/assessorias${query}`, { method, body })
 
 /* Linha do banco → ficha usada na tela */
 const rowToAss = r => ({ ...(r.data || {}), id: r.id, createdAt: r.created_at })

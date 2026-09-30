@@ -1,8 +1,10 @@
 /**
  * Endpoint público do funil /funil-europa → salva o lead no CRM (Supabase).
  * Só aceita os campos do funil e sempre entra no estágio "Lead Recebido".
+ * Proteções: só aceita envios do próprio site, limite por IP e tamanho dos campos.
  */
 import { sanitize } from './_lib/leads.js'
+import { rateLimit, clientIp, sameOrigin } from './_lib/ratelimit.js'
 import { dbConfigured, insertLead } from './_lib/supabase.js'
 
 const TEMPS = ['Frio', 'Morno', 'Quente', 'VIP']
@@ -10,10 +12,17 @@ const TEMPS = ['Frio', 'Morno', 'Quente', 'VIP']
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
   if (!dbConfigured()) return res.status(503).json({ error: 'not_configured' })
+  if (!sameOrigin(req)) return res.status(403).json({ error: 'bad_origin' })
+  if (!rateLimit(`funil:${clientIp(req)}`, { max: 5, windowMs: 10 * 60_000 })) {
+    return res.status(429).json({ error: 'too_many_requests' })
+  }
 
-  const { name, phone, dest, type, value, temp, source, obs } = req.body || {}
-  const row = sanitize({ name, phone, dest, type, value, temp, source, obs })
+  const { name, phone, dest, type, temp, source, obs } = req.body || {}
+  const row = sanitize({ name, phone, dest, type, temp, source, obs })
   if (!row.name) return res.status(400).json({ error: 'name_required' })
+  row.name = row.name.slice(0, 120)
+  row.phone = String(row.phone || '').replace(/[^\d+()\s-]/g, '').slice(0, 30)
+  row.value = 0
   row.stage = 0
   row.consultor = 'Joseph'
   if (!TEMPS.includes(row.temp)) row.temp = 'Morno'

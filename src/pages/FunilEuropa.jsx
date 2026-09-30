@@ -22,55 +22,20 @@ const getTemp = (a, qualificado) => {
   return 'Frio'
 }
 
-/* ── Salva lead no localStorage do CRM ── */
+/* ── Envia o lead para o CRM (servidor) — nada fica salvo no navegador do visitante ── */
 function salvarNoCRM({ nome, telefone, answers, labels, qualificado = false }) {
-  try {
-    const leads  = JSON.parse(localStorage.getItem('crm_leads') || '[]')
-    const nextId = parseInt(localStorage.getItem('crm_next_id') || '1')
-
-    const words    = nome.trim().split(' ')
-    const initials = words.length >= 2
-      ? words[0][0] + words[words.length - 1][0]
-      : words[0].slice(0, 2)
-
-    const colors = ['#F97316','#8B5CF6','#3B82F6','#22C55E','#EC4899','#06B6D4','#F59E0B']
-    const dest     = [labels.destino, labels.perfil].filter(Boolean).join(' · ')
-    const nomeFinal = nome || `${labels.perfil || 'Lead'} — ${labels.destino || 'Funil Europa'}`
-
-    const lead = {
-      id:        nextId,
-      name:      nomeFinal,
-      phone:     telefone || '',
-      email:     '',
-      cidade:    '',
-      dest,
-      type:      answers.destino === 'europa'     ? 'Europa'
-                : answers.destino === 'eua'       ? 'Internacional'
-                : answers.destino === 'caribe'    ? 'Internacional'
-                : answers.destino === 'america_sul' ? 'América do Sul'
-                : 'Internacional',
-      value:     0, // preenchido pelo consultor no CRM após a análise
-      stage:     0,
-      temp:      getTemp(answers, qualificado),
-      source:    qualificado ? 'Landing Europa · WhatsApp' : 'Landing Europa',
-      initials:  initials.toUpperCase(),
-      color:     colors[nextId % colors.length],
-      date:      new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', ''),
-      consultor: 'Joseph',
-      obs:       `${qualificado ? '🔥 QUALIFICADO — foi para WhatsApp' : '⏳ Nutrição — aguardando contato'} | Prazo: ${labels.prazo} | Investimento: ${labels.investimento} | Campanha Europa Jun/25`,
-    }
-
-    leads.push(lead)
-    localStorage.setItem('crm_leads', JSON.stringify(leads))
-    localStorage.setItem('crm_next_id', String(nextId + 1))
-
-    // Envia também para o CRM na nuvem (o localStorage do visitante não chega no CRM)
-    const { name, phone, dest: d, type, value, temp, source, obs } = lead
-    sendFunnelLead({ name, phone, dest: d, type, value, temp, source, obs })
-      .catch(e => console.warn('CRM nuvem indisponível:', e.message))
-  } catch (e) {
-    console.error('Erro ao salvar no CRM:', e)
-  }
+  const dest = [labels.destino, labels.perfil].filter(Boolean).join(' · ')
+  sendFunnelLead({
+    name:   nome || `${labels.perfil || 'Lead'} — ${labels.destino || 'Funil Europa'}`,
+    phone:  telefone || '',
+    dest,
+    type:   answers.destino === 'europa'      ? 'Europa'
+          : answers.destino === 'america_sul' ? 'América do Sul'
+          : 'Internacional',
+    temp:   getTemp(answers, qualificado),
+    source: qualificado ? 'Landing Europa · WhatsApp' : 'Landing Europa',
+    obs:    `${qualificado ? '🔥 QUALIFICADO — foi para WhatsApp' : '⏳ Nutrição — aguardando contato'} | Prazo: ${labels.prazo} | Investimento: ${labels.investimento} | Campanha Europa Jun/25`,
+  }).catch(e => console.warn('CRM indisponível:', e.message))
 }
 
 /* ══════════════════════════════════════════
