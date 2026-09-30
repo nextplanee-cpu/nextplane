@@ -10,7 +10,7 @@
  * DELETE ?id=       → exclui o lead (só admin)
  */
 import { requireUser } from './_lib/auth.js'
-import { sanitize } from './_lib/leads.js'
+import { sanitize, STAGE_PERDIDO } from './_lib/leads.js'
 import { clientIp } from './_lib/ratelimit.js'
 import { dbConfigured, listLeads, getLead, insertLead, updateLead, deleteLead, audit } from './_lib/supabase.js'
 
@@ -36,6 +36,9 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const row = sanitize(req.body)
       if (!row.name) return res.status(400).json({ error: 'name_required' })
+      if (row.stage === STAGE_PERDIDO && !String(row.motivo_perda || '').trim()) {
+        return res.status(400).json({ error: 'motivo_required' })
+      }
       if (!isAdmin) row.consultor = user.nome
       const [created] = await insertLead(row)
       audit(user, 'criar', 'lead', created?.id, ip)
@@ -46,6 +49,10 @@ export default async function handler(req, res) {
       const row = sanitize(req.body)
       if (!isAdmin) delete row.consultor
       if (!id || !Object.keys(row).length) return res.status(400).json({ error: 'bad_request' })
+      // Perder um lead exige motivo (base da análise de perdas)
+      if (row.stage === STAGE_PERDIDO && !String(row.motivo_perda || '').trim()) {
+        return res.status(400).json({ error: 'motivo_required' })
+      }
       if (!(await canTouch(id))) return res.status(404).json({ error: 'not_found' })
       const [updated] = await updateLead(id, row)
       audit(user, `editar:${Object.keys(row).join(',')}`, 'lead', id, ip)

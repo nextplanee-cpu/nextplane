@@ -35,11 +35,12 @@ const LEAD_COLS = [
   'id', 'name', 'phone', 'email', 'cidade', 'dest', 'type', 'value', 'stage', 'temp', 'score',
   'pessoas', 'dias', 'investimento', 'source', 'consultor', 'obs', 'campaign_name', 'adset_name',
   'ad_name', 'form_name', 'respostas', 'platform', 'created_at', 'updated_at',
+  'motivo_perda', 'motivo_perda_obs', 'perdido_em',
 ].join(',')
 
 /* Tudo que identifica o cliente vai criptografado. Ficam abertos só campos de controle
    (estágio, temperatura, score, valor, origem, campanha, datas) — nenhum identifica a pessoa. */
-const LEAD_SECRET = ['name', 'phone', 'email', 'cidade', 'dest', 'obs']
+const LEAD_SECRET = ['name', 'phone', 'email', 'cidade', 'dest', 'obs', 'motivo_perda_obs']
 const LEAD_SECRET_JSON = ['respostas']
 const encLead = row => {
   const out = { ...row }

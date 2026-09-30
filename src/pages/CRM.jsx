@@ -39,6 +39,22 @@ const STAGES = [
 // ids mantidos p/ compatibilidade com leads salvos; estágios removidos (Briefing, Pesquisa, Follow-up 2) viram o vizinho
 const STAGE_MAP = { 3:2, 4:2, 7:6 }
 const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0]
+const PERDIDO = 12
+
+/* Motivos de perda — lista fixa para dar para comparar e somar nos relatórios */
+const MOTIVOS_PERDA = [
+  { k:'preco',       l:'Preço / orçamento acima do esperado', c:'#EF4444' },
+  { k:'sem_resposta',l:'Não respondeu / sumiu',               c:'#6B7280' },
+  { k:'pesquisando', l:'Só pesquisando / sem data definida',  c:'#F59E0B' },
+  { k:'concorrente', l:'Fechou com outra agência',            c:'#F97316' },
+  { k:'sozinho',     l:'Comprou por conta própria',           c:'#EAB308' },
+  { k:'desistiu',    l:'Desistiu ou adiou a viagem',          c:'#A78BFA' },
+  { k:'fora_perfil', l:'Fora do perfil (orçamento baixo)',    c:'#3B82F6' },
+  { k:'nao_atende',  l:'Destino ou serviço que não atendemos',c:'#06B6D4' },
+  { k:'invalido',    l:'Contato inválido / spam',             c:'#374151' },
+  { k:'outro',       l:'Outro (descrever)',                   c:'#9CA3AF' },
+]
+const motivoOf = k => MOTIVOS_PERDA.find(m => m.k === k)
 const normLeads = list => list.map(l => l.stage in STAGE_MAP ? { ...l, stage: STAGE_MAP[l.stage] } : l)
 
 const TIPOS = ['Internacional','Lua de Mel','Disney','Cruzeiro','Corporativo','Nacional','Europa','América do Sul']
@@ -268,17 +284,47 @@ function CRMApp({ user, onLogout }) {
   }
 
   /* ── Mover estágio ── */
+  const applyLead = (id, fields) => {
+    setLeads(p => p.map(l => l.id === id ? { ...l, ...fields } : l))
+    setSelected(s => s?.id === id ? { ...s, ...fields } : s)
+  }
+
   const moveStage = (id, stage) => {
-    const prev = leads.find(l => l.id === id)?.stage
-    setLeads(p => p.map(l => l.id === id ? { ...l, stage } : l))
-    if (selected?.id === id) setSelected(s => ({ ...s, stage }))
-    if (mode === 'cloud') {
-      patchLead(id, { stage }).catch(() => {
-        setLeads(p => p.map(l => l.id === id ? { ...l, stage: prev } : l))
-        if (selected?.id === id) setSelected(s => ({ ...s, stage: prev }))
-        alert('Não foi possível salvar a mudança de estágio na nuvem.')
-      })
+    const lead = leads.find(l => l.id === id)
+    if (!lead) return
+    // Perder um lead exige motivo → abre a janela de motivo
+    if (stage === PERDIDO) { setLossFor({ id, motivo:'', obs:'' }); return }
+    // Reabrir um lead perdido limpa o motivo
+    const fields = lead.stage === PERDIDO
+      ? { stage, motivo_perda:'', motivo_perda_obs:'', perdido_em:null }
+      : { stage }
+    const prev = Object.fromEntries(Object.keys(fields).map(k => [k, lead[k]]))
+    applyLead(id, fields)
+    patchLead(id, fields).catch(() => {
+      applyLead(id, prev)
+      alert('Não foi possível salvar a mudança de estágio na nuvem.')
+    })
+  }
+
+  /* ── Motivo da perda ── */
+  const [lossFor, setLossFor] = useState(null)   // { id, motivo, obs }
+  const [lossBusy, setLossBusy] = useState(false)
+
+  const confirmLoss = async () => {
+    const { id, motivo, obs } = lossFor
+    if (!motivo || (motivo === 'outro' && !obs.trim())) return
+    const lead = leads.find(l => l.id === id)
+    const fields = {
+      stage: PERDIDO, motivo_perda: motivo, motivo_perda_obs: obs.trim(),
+      perdido_em: lead?.stage === PERDIDO && lead.perdido_em ? lead.perdido_em : new Date().toISOString(),
     }
+    setLossBusy(true)
+    try {
+      await patchLead(id, fields)
+      applyLead(id, fields)
+      setLossFor(null)
+    } catch { alert('Não foi possível salvar o motivo da perda. Tente de novo.') }
+    finally { setLossBusy(false) }
   }
 
   /* ── Editar valor do lead ── */
@@ -476,6 +522,11 @@ function CRMApp({ user, onLogout }) {
                         <Badge color={TEMP_C[lead.temp]} small>{TEMP_I[lead.temp]} {lead.temp}</Badge>
                       </div>
                       <div style={{ fontSize:10, color:T.muted, marginTop:5 }}>📍 {lead.source}</div>
+                      {lead.stage === PERDIDO && (
+                        <div style={{ fontSize:10, marginTop:5, color: motivoOf(lead.motivo_perda)?.c || T.err }}>
+                          ✖ {motivoOf(lead.motivo_perda)?.l || 'Sem motivo informado'}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!sl.length && (
@@ -857,6 +908,47 @@ function CRMApp({ user, onLogout }) {
   )
 
   /* ── RELATÓRIOS ── */
+  /* Motivos de perda reais (leads no estágio Perdido), com recorte Meta Ads x demais origens */
+  const ViewMotivosPerda = () => {
+    const perdidos = leads.filter(l => l.stage === PERDIDO)
+    const rows = [...MOTIVOS_PERDA, { k:'', l:'Sem motivo informado', c:'#4B5563' }]
+      .map(m => {
+        const sl = perdidos.filter(l => (l.motivo_perda || '') === m.k)
+        return { ...m, n: sl.length, meta: sl.filter(l => l.source === 'Meta Ads').length }
+      })
+      .filter(m => m.n)
+      .sort((a, b) => b.n - a.n)
+    return (
+      <Card>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', margin:'0 0 16px' }}>
+          <h3 style={{ fontSize:14, fontWeight:700, margin:0, color:T.gold }}>Motivos de Perda</h3>
+          <span style={{ fontSize:11, color:T.muted }}>{perdidos.length} perdido{perdidos.length === 1 ? '' : 's'}</span>
+        </div>
+        {!rows.length && (
+          <div style={{ fontSize:12, color:T.muted, lineHeight:1.5 }}>
+            Nenhum lead perdido ainda. Ao mover um lead para <b>Perdido</b>, o CRM pede o motivo e ele aparece aqui.
+          </div>
+        )}
+        {rows.map(m => {
+          const p = Math.round(m.n / perdidos.length * 100)
+          return (
+            <div key={m.k || 'none'} style={{ marginBottom:10 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginBottom:3 }}>
+                <span style={{ fontSize:12, color:T.muted }}>{m.l}</span>
+                <span style={{ fontSize:12, fontWeight:600, color:m.c, whiteSpace:'nowrap' }}>
+                  {m.n} · {p}%{m.meta ? <span style={{ color:T.muted, fontWeight:400 }}> ({m.meta} Meta)</span> : null}
+                </span>
+              </div>
+              <div style={{ height:6, background:'rgba(255,255,255,0.06)', borderRadius:4 }}>
+                <div style={{ height:'100%', width:`${p}%`, background:m.c, borderRadius:4 }}/>
+              </div>
+            </div>
+          )
+        })}
+      </Card>
+    )
+  }
+
   const ViewRelatorios = () => {
     const maxVal = Math.max(...TIPOS.map(t => leads.filter(l=>l.type===t).reduce((a,b)=>a+b.value,0)), 1)
     return (
@@ -882,26 +974,7 @@ function CRMApp({ user, onLogout }) {
               )
             })}
           </Card>
-          <Card>
-            <h3 style={{ fontSize:14, fontWeight:700, margin:'0 0 16px', color:T.gold }}>Motivos de Perda</h3>
-            {[
-              { m:'Orçamento acima do esperado', p:35, c:'#EF4444' },
-              { m:'Escolheu outra agência',       p:25, c:'#F97316' },
-              { m:'Adiou a viagem',               p:20, c:'#F59E0B' },
-              { m:'Não respondeu mais',           p:15, c:'#6B7280' },
-              { m:'Outros',                       p:5,  c:'#374151' },
-            ].map((m, i) => (
-              <div key={i} style={{ marginBottom:10 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                  <span style={{ fontSize:12, color:T.muted }}>{m.m}</span>
-                  <span style={{ fontSize:12, fontWeight:600, color:m.c }}>{m.p}%</span>
-                </div>
-                <div style={{ height:6, background:'rgba(255,255,255,0.06)', borderRadius:4 }}>
-                  <div style={{ height:'100%', width:`${m.p}%`, background:m.c, borderRadius:4 }}/>
-                </div>
-              </div>
-            ))}
-          </Card>
+          <ViewMotivosPerda/>
         </div>
         <Card>
           <h3 style={{ fontSize:14, fontWeight:700, margin:'0 0 14px', color:T.gold }}>Conversão por Origem de Lead</h3>
@@ -1236,6 +1309,34 @@ CREATE TABLE activities (
                 <div style={{ marginTop:12, fontSize:12, color:T.muted, lineHeight:1.5 }}>🗒️ {selected.obs}</div>
               )}
 
+              {/* Motivo da perda */}
+              {selected.stage === PERDIDO && (
+                <div style={{ marginTop:14, background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.25)',
+                  borderRadius:8, padding:'10px 12px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                    <div>
+                      <div style={{ fontSize:11, color:T.muted }}>Motivo da perda</div>
+                      <div style={{ fontSize:13, fontWeight:700, color: motivoOf(selected.motivo_perda)?.c || T.err }}>
+                        {motivoOf(selected.motivo_perda)?.l || 'Não informado'}
+                      </div>
+                    </div>
+                    <button onClick={() => setLossFor({ id:selected.id, motivo:selected.motivo_perda || '', obs:selected.motivo_perda_obs || '' })}
+                      style={{ background:'transparent', border:T.borderN, borderRadius:6, color:T.muted, padding:'4px 10px',
+                        cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
+                      {selected.motivo_perda ? 'Alterar' : 'Informar motivo'}
+                    </button>
+                  </div>
+                  {selected.motivo_perda_obs && (
+                    <div style={{ fontSize:12, color:T.text, marginTop:6, lineHeight:1.5 }}>{selected.motivo_perda_obs}</div>
+                  )}
+                  {selected.perdido_em && (
+                    <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>
+                      Perdido em {new Date(selected.perdido_em).toLocaleDateString('pt-BR')}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Mover estágio */}
               <div style={{ margin:'16px 0 0' }}>
                 <div style={{ fontSize:12, color:T.muted, marginBottom:8 }}>Mover para estágio:</div>
@@ -1275,6 +1376,63 @@ CREATE TABLE activities (
             </div>
           </div>
         )}
+
+        {/* ── Modal: Motivo da perda ── */}
+        {lossFor && (() => {
+          const lead = leads.find(l => l.id === lossFor.id)
+          const needObs = lossFor.motivo === 'outro'
+          const ok = lossFor.motivo && (!needObs || lossFor.obs.trim())
+          return (
+            <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex',
+              alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}
+              onClick={() => !lossBusy && setLossFor(null)}>
+              <div className="crm-scroll" onClick={e => e.stopPropagation()}
+                style={{ background:T.card, borderRadius:14, padding:24, width:460, maxWidth:'100%', maxHeight:'90vh',
+                  overflowY:'auto', border:T.borderN, borderTop:`3px solid ${T.err}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                  <div style={{ fontSize:17, fontWeight:700 }}>Por que este lead foi perdido?</div>
+                  <button onClick={() => setLossFor(null)} disabled={lossBusy}
+                    style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><X size={20}/></button>
+                </div>
+                <p style={{ fontSize:12, color:T.muted, margin:'0 0 14px' }}>
+                  {lead?.name} · o motivo alimenta o relatório de perdas por campanha e origem.
+                </p>
+                <div role="radiogroup" style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {MOTIVOS_PERDA.map(m => {
+                    const on = lossFor.motivo === m.k
+                    return (
+                      <button key={m.k} role="radio" aria-checked={on} onClick={() => setLossFor(f => ({ ...f, motivo:m.k }))}
+                        style={{ display:'flex', alignItems:'center', gap:10, textAlign:'left', padding:'9px 12px', borderRadius:8,
+                          cursor:'pointer', fontFamily:'inherit', fontSize:13, color:T.text,
+                          background: on ? `${m.c}22` : 'rgba(255,255,255,0.03)',
+                          border: on ? `1px solid ${m.c}` : T.borderN }}>
+                        <span style={{ width:10, height:10, borderRadius:'50%', flexShrink:0,
+                          background: on ? m.c : 'transparent', border:`2px solid ${m.c}` }}/>
+                        {m.l}
+                      </button>
+                    )
+                  })}
+                </div>
+                <label style={{ display:'block', fontSize:12, color:T.muted, margin:'14px 0 6px' }}>
+                  Comentário {needObs ? '(obrigatório)' : '(opcional)'}
+                </label>
+                <textarea value={lossFor.obs} onChange={e => setLossFor(f => ({ ...f, obs:e.target.value.slice(0, 1000) }))}
+                  rows={3} placeholder="Ex.: achou caro o aéreo; vai viajar só em 2027; fechou pacote em outra agência…"
+                  style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border:T.borderN,
+                    borderRadius:8, padding:'9px 11px', color:T.text, fontSize:13, fontFamily:'inherit', resize:'vertical' }}/>
+                <div style={{ display:'flex', gap:8, marginTop:16 }}>
+                  <Btn outline onClick={() => setLossFor(null)} disabled={lossBusy} style={{ flex:1, justifyContent:'center' }}>Cancelar</Btn>
+                  <button onClick={confirmLoss} disabled={!ok || lossBusy}
+                    style={{ flex:1, background:T.err, color:'#fff', border:'none', borderRadius:8, padding:'9px 14px',
+                      fontWeight:700, fontSize:13, fontFamily:'inherit', cursor: ok && !lossBusy ? 'pointer' : 'not-allowed',
+                      opacity: ok && !lossBusy ? 1 : 0.5 }}>
+                    {lossBusy ? 'Salvando…' : 'Marcar como perdido'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ── Modal: Novo Lead ── */}
         {showNew && (

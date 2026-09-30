@@ -137,13 +137,19 @@ export function metaLeadToRow(meta, formName = '') {
 export const EDITABLE = [
   'name', 'phone', 'email', 'cidade', 'dest', 'type', 'value', 'stage', 'temp',
   'source', 'consultor', 'obs', 'pessoas', 'dias', 'investimento',
+  'motivo_perda', 'motivo_perda_obs', 'perdido_em',
 ]
+
+export const STAGE_PERDIDO = 12
 
 export function sanitize(body = {}) {
   const row = {}
   for (const k of EDITABLE) {
     if (body[k] === undefined) continue
-    if (k === 'value' || k === 'stage') {
+    if (k === 'perdido_em') {
+      const d = body[k] ? new Date(body[k]) : null
+      row[k] = d && !isNaN(d) ? d.toISOString() : null
+    } else if (k === 'value' || k === 'stage') {
       const n = Number(body[k])
       if (Number.isFinite(n)) row[k] = n
     } else {
