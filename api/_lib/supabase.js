@@ -4,7 +4,7 @@
  * Telefone/e-mail dos leads e dados de passageiros são gravados criptografados
  * (ver crypto.js) e só são abertos aqui, no servidor, para quem tem acesso.
  */
-import { encrypt, decrypt, encryptJSON, decryptJSON } from './crypto.js'
+import { encrypt, decrypt, encryptJSON, decryptJSON, isEncrypted, encryptionEnabled } from './crypto.js'
 
 const TABLE = 'crm_leads'
 
@@ -37,16 +37,21 @@ const LEAD_COLS = [
   'ad_name', 'form_name', 'respostas', 'platform', 'created_at', 'updated_at',
 ].join(',')
 
-const LEAD_SECRET = ['phone', 'email']
+/* Tudo que identifica o cliente vai criptografado. Ficam abertos só campos de controle
+   (estágio, temperatura, score, valor, origem, campanha, datas) — nenhum identifica a pessoa. */
+const LEAD_SECRET = ['name', 'phone', 'email', 'cidade', 'dest', 'obs']
+const LEAD_SECRET_JSON = ['respostas']
 const encLead = row => {
   const out = { ...row }
   for (const k of LEAD_SECRET) if (k in out) out[k] = encrypt(out[k])
+  for (const k of LEAD_SECRET_JSON) if (k in out && !isEncrypted(out[k])) out[k] = encryptJSON(out[k])
   return out
 }
 const decLead = row => {
   if (!row) return row
   const out = { ...row }
   for (const k of LEAD_SECRET) if (k in out) out[k] = decrypt(out[k])
+  for (const k of LEAD_SECRET_JSON) if (k in out) out[k] = decryptJSON(out[k], [])
   return out
 }
 const decRows = rows => (rows || []).map(decLead)
@@ -92,19 +97,27 @@ export const deleteLead = id =>
 const TABLE_ASS = 'crm_assessorias'
 const ASS_COLS = 'id,lead_id,data,created_at'
 
-/* Passageiros (CPF, passaporte, nascimento) e contato do cliente vão criptografados */
+/* A ficha inteira vai criptografada num único bloco (`_enc`): cliente, contato, passageiros
+   (CPF, passaporte, nascimento), voos, hotéis, reservas, roteiro, observações, histórico.
+   Só `responsavel` fica aberto — o servidor precisa dele para saber quem pode ver a ficha. */
+const legacyOpen = d => {
+  // fichas gravadas na versão anterior (só passageiros/phone/email criptografados)
+  const out = { ...d }
+  if ('passageiros' in out) out.passageiros = decryptJSON(out.passageiros, [])
+  for (const k of ['phone', 'email']) if (k in out) out[k] = decrypt(out[k])
+  return out
+}
 const encAss = row => {
-  const d = { ...(row.data || {}) }
-  if ('passageiros' in d) d.passageiros = encryptJSON(d.passageiros)
-  for (const k of ['phone', 'email']) if (k in d) d[k] = encrypt(d[k])
-  return { ...row, data: d }
+  const d = row.data || {}
+  if (isEncrypted(d._enc) || !encryptionEnabled()) return row
+  const { responsavel = '', ...rest } = legacyOpen(d)
+  return { ...row, data: { responsavel, _enc: encryptJSON(rest) } }
 }
 const decAss = row => {
   if (!row?.data) return row
-  const d = { ...row.data }
-  if ('passageiros' in d) d.passageiros = decryptJSON(d.passageiros, [])
-  for (const k of ['phone', 'email']) if (k in d) d[k] = decrypt(d[k])
-  return { ...row, data: d }
+  const { _enc, responsavel, ...rest } = row.data
+  const body = _enc ? decryptJSON(_enc, {}) : legacyOpen(rest)
+  return { ...row, data: { ...body, responsavel } }
 }
 const decAssRows = rows => (rows || []).map(decAss)
 
@@ -130,10 +143,12 @@ export const deleteAssessoria = id =>
 /* ── Migração: criptografa registros antigos que ainda estão em texto aberto ── */
 export async function encryptExisting() {
   let leads = 0, assessorias = 0
-  for (const l of await request(`${TABLE}?select=id,phone,email&limit=10000`) || []) {
-    const enc = encLead({ phone: l.phone, email: l.email })
-    if (enc.phone !== l.phone || enc.email !== l.email) {
-      await request(`${TABLE}?id=eq.${l.id}`, { method: 'PATCH', body: enc })
+  const fields = [...LEAD_SECRET, ...LEAD_SECRET_JSON]
+  for (const l of await request(`${TABLE}?select=id,${fields.join(',')}&limit=10000`) || []) {
+    const { id, ...orig } = l
+    const enc = encLead(orig)
+    if (JSON.stringify(enc) !== JSON.stringify(orig)) {
+      await request(`${TABLE}?id=eq.${id}`, { method: 'PATCH', body: enc })
       leads++
     }
   }
