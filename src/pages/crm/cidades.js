@@ -25,14 +25,18 @@ export const ORIGENS_BR = parse([
 
 export const DESTINOS = parse([
   ['Europa',
-    'Lisboa/Portugal, Porto/Portugal, Algarve/Portugal, Sintra/Portugal, Madeira/Portugal, Açores/Portugal, ' +
-    'Madri/Espanha, Barcelona/Espanha, Sevilha/Espanha, Granada/Espanha, Valência/Espanha, Málaga/Espanha, Ibiza/Espanha, Palma de Mallorca/Espanha, San Sebastián/Espanha, ' +
-    'Paris/França, Nice/França, Cannes/França, Lyon/França, Bordeaux/França, Marselha/França, Provence/França, Chamonix/França, Mônaco/Mônaco, ' +
+    'Lisboa/Portugal, Porto/Portugal, Algarve/Portugal, Sintra/Portugal, Cascais/Portugal, Óbidos/Portugal, Nazaré/Portugal, Coimbra/Portugal, Aveiro/Portugal, Évora/Portugal, Vale do Douro/Portugal, Fátima/Portugal, Madeira/Portugal, Açores/Portugal, ' +
+    'Madri/Espanha, Barcelona/Espanha, Sevilha/Espanha, Granada/Espanha, Valência/Espanha, Málaga/Espanha, Ibiza/Espanha, Palma de Mallorca/Espanha, San Sebastián/Espanha, Bilbao/Espanha, Toledo/Espanha, Segóvia/Espanha, Córdoba/Espanha, Ronda/Espanha, Santiago de Compostela/Espanha, Tenerife/Espanha, ' +
+    'Paris/França, Nice/França, Cannes/França, Lyon/França, Bordeaux/França, Marselha/França, Provence/França, Avignon/França, Saint-Tropez/França, Annecy/França, Estrasburgo/França, Colmar/França, Mont Saint-Michel/França, Normandia/França, Vale do Loire/França, Chamonix/França, Mônaco/Mônaco, ' +
     'Londres/Inglaterra, Edimburgo/Escócia, Dublin/Irlanda, Amsterdã/Holanda, Bruxelas/Bélgica, Bruges/Bélgica, ' +
     'Roma/Itália, Florença/Itália, Veneza/Itália, Milão/Itália, Nápoles/Itália, Sorrento/Itália, Positano/Itália, Amalfi/Itália, Capri/Itália, ' +
-    'Toscana/Itália, Cinque Terre/Itália, Lago de Como/Itália, Verona/Itália, Bolonha/Itália, Sicília/Itália, Puglia/Itália, Dolomitas/Itália, ' +
-    'Zurique/Suíça, Genebra/Suíça, Lucerna/Suíça, Interlaken/Suíça, Zermatt/Suíça, St. Moritz/Suíça, ' +
-    'Viena/Áustria, Salzburgo/Áustria, Innsbruck/Áustria, Hallstatt/Áustria, Munique/Alemanha, Berlim/Alemanha, Frankfurt/Alemanha, Hamburgo/Alemanha, ' +
+    'Toscana/Itália, Siena/Itália, San Gimignano/Itália, Pisa/Itália, Lucca/Itália, Montepulciano/Itália, Montalcino/Itália, Cortona/Itália, Chianti/Itália, Val d’Orcia/Itália, ' +
+    'Assis/Itália, Perugia/Itália, Orvieto/Itália, Ravello/Itália, Ísquia/Itália, Matera/Itália, Alberobello/Itália, Puglia/Itália, Bari/Itália, ' +
+    'Cinque Terre/Itália, Portofino/Itália, Gênova/Itália, Turim/Itália, Lago de Como/Itália, Bellagio/Itália, Lago de Garda/Itália, Bérgamo/Itália, ' +
+    'Verona/Itália, Pádua/Itália, Trieste/Itália, Bolonha/Itália, Módena/Itália, Parma/Itália, Ravena/Itália, Dolomitas/Itália, ' +
+    'Sicília/Itália, Taormina/Itália, Palermo/Itália, Catânia/Itália, Sardenha/Itália, ' +
+    'Zurique/Suíça, Genebra/Suíça, Lucerna/Suíça, Interlaken/Suíça, Zermatt/Suíça, St. Moritz/Suíça, Grindelwald/Suíça, Berna/Suíça, Montreux/Suíça, Basileia/Suíça, ' +
+    'Viena/Áustria, Salzburgo/Áustria, Innsbruck/Áustria, Hallstatt/Áustria, Munique/Alemanha, Berlim/Alemanha, Frankfurt/Alemanha, Hamburgo/Alemanha, Colônia/Alemanha, Heidelberg/Alemanha, Rothenburg/Alemanha, Füssen (Neuschwanstein)/Alemanha, Dresden/Alemanha, ' +
     'Praga/Tchéquia, Budapeste/Hungria, Cracóvia/Polônia, Varsóvia/Polônia, ' +
     'Copenhague/Dinamarca, Estocolmo/Suécia, Oslo/Noruega, Bergen/Noruega, Tromsø/Noruega, Helsinque/Finlândia, Rovaniemi (Lapônia)/Finlândia, Reykjavik/Islândia, ' +
     'Atenas/Grécia, Santorini/Grécia, Mykonos/Grécia, Creta/Grécia, Dubrovnik/Croácia, Split/Croácia, Istambul/Turquia, Capadócia/Turquia, Malta/Malta'],
