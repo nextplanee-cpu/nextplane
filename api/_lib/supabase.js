@@ -130,6 +130,10 @@ export const listAssessorias = responsavel =>
 export const getAssessoriaOwner = id =>
   request(`${TABLE_ASS}?select=id,responsavel:data->>responsavel&id=eq.${encodeURIComponent(id)}`).then(r => r?.[0] || null)
 
+/* Ficha completa (aberta) — usada pelo link do cliente, que filtra o que sai */
+export const getAssessoria = id =>
+  request(`${TABLE_ASS}?select=${ASS_COLS},updated_at&id=eq.${encodeURIComponent(id)}`).then(r => decAss(r?.[0] || null))
+
 export const insertAssessoria = row =>
   request(`${TABLE_ASS}?select=${ASS_COLS}`, { method: 'POST', body: encAss(row), prefer: 'return=representation' }).then(decAssRows)
 

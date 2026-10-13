@@ -15,6 +15,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfUse    from './pages/TermsOfUse'
 import CRM           from './pages/CRM'
 import FunilEuropa   from './pages/FunilEuropa'
+import Acompanhar    from './pages/Acompanhar'
 
 function HomePage() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/termos-de-uso"           element={<TermsOfUse />}    />
         <Route path="/crm"                     element={<CRM />}           />
         <Route path="/funil-europa"            element={<FunilEuropa />}   />
+        <Route path="/acompanhar/:token"       element={<Acompanhar />}    />
       </Routes>
     </BrowserRouter>
   )

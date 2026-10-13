@@ -16,6 +16,11 @@ export const createAssessoria = a => call('POST', { body: { data: assToData(a) }
 export const saveAssessoria   = a => call('PATCH', { query: `?id=${encodeURIComponent(a.id)}`, body: { data: assToData(a) } }).then(rowToAss)
 export const removeAssessoria = id => call('DELETE', { query: `?id=${encodeURIComponent(id)}` })
 
+/* Link de acompanhamento do cliente (somente leitura) */
+export const portalLink = (id, v) =>
+  apiFetch(`/api/portal?id=${encodeURIComponent(id)}&v=${encodeURIComponent(v)}`)
+    .then(({ token }) => `${window.location.origin}/acompanhar/${token}`)
+
 /* WhatsApp com texto livre (assume Brasil se vier sem DDI) */
 export function waText(phone, text) {
   let digits = String(phone || '').replace(/\D/g, '')

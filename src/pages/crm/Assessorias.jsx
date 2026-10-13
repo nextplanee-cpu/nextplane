@@ -7,10 +7,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, X, Search, ArrowLeft, Trash2, MessageCircle, Copy, AlertTriangle,
-  Calendar, Users, Plane, CheckCircle2, ExternalLink,
+  Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2,
 } from 'lucide-react'
 import {
-  fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText,
+  fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
 } from '../../lib/assessoriasApi'
 import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
 
@@ -183,6 +183,7 @@ const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov'
 const fmtMes = d => (d ? `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(2, 4)}` : '—')
 const periodo = a => (a.inicio ? `${fmtD(a.inicio)} a ${fmtD(a.fim)}` : 'datas a definir')
 const daysTo = d => (d ? Math.ceil((new Date(`${d}T00:00`) - new Date(`${todayISO()}T00:00`)) / 864e5) : null)
+const addDays = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 const addMonths = (d, m) => { const x = new Date(`${d}T00:00`); x.setMonth(x.getMonth() + m); return x.toISOString().slice(0, 10) }
 
 function progress(a, s) {
@@ -215,6 +216,34 @@ function alertas(a) {
   if (a.proxima_data && a.proxima_data < todayISO()) out.push('Próxima ação atrasada')
   if (a.fim && daysTo(a.fim) < 0) out.push('Viagem terminou — marque a assessoria como concluída')
   return out
+}
+
+/* ─── Link do cliente: só o que ele pode ver (o servidor filtra de novo) ── */
+const DOC_GRUPO = { aereo:'Aéreo', hotel:'Hospedagem', seguro:'Seguro viagem', exp:'Ingressos e trem', internet:'Internet' }
+const docInfo = (k, it) => ({
+  aereo:    [trechoDe(it) || 'Voo', [ciaDe(it.cia), it.voo].filter(Boolean).join(' '), it.data],
+  hotel:    [it.hotel || 'Hospedagem', it.cidade, it.checkin],
+  seguro:   [it.seguradora || 'Seguro viagem', it.plano, it.inicio],
+  exp:      [it.nome || it.tipo, it.cidade, it.data],
+  internet: [[it.tipo, it.operadora].filter(Boolean).join(' · '), it.regiao, it.inicio],
+})[k]
+function portalView(a) {
+  const atual = currentStep(a)
+  return {
+    cliente: String(a.cliente || '').trim().split(/\s+/)[0] || '',
+    destino: a.destino || '', origem: a.origem || '', inicio: a.inicio || '', fim: a.fim || '', viajantes: a.viajantes || '',
+    etapas: STEPS.filter(s => !a.na?.[s.k]).map(s => {
+      const p = progress(a, s)
+      return { k:s.k, nome:s.short, icon:s.icon, estado:p.complete ? 'feito' : s.k === atual?.k ? 'atual' : 'pendente',
+        done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '' }
+    }),
+    proxima: a.proxima_acao ? { acao:a.proxima_acao, data:a.proxima_data || '' } : null,
+    documentos: EMISSAO.filter(k => !a.na?.[k]).flatMap(k => (a[k] || []).filter(it => it.link).map(it => {
+      const [titulo, sub, data] = docInfo(k, it)
+      return { grupo:DOC_GRUPO[k], icon:STEP[k].icon, titulo, sub:[sub, data && fmtD(data)].filter(Boolean).join(' · '), link:it.link }
+    })),
+    atualizado: new Date().toISOString(),
+  }
 }
 
 function fillTemplate(txt, a) {
@@ -412,7 +441,7 @@ export default function Assessorias({ mode = 'local' }) {
           log.unshift({ t: new Date().toISOString(), msg:`${s.icon} ${s.short} concluída` })
       })
       if (a.status !== next.status) log.unshift({ t: new Date().toISOString(), msg:`Status: ${STATUS[next.status]?.label}` })
-      return { ...next, log: log.slice(0, 80) }
+      return { ...next, log: log.slice(0, 80), portal_view: next.portal?.ativo ? portalView(next) : undefined }
     }) }))
     if (storeRef.current.mode !== 'cloud') return
     clearTimeout(timers.current[id])
@@ -471,7 +500,7 @@ export default function Assessorias({ mode = 'local' }) {
           borderRadius:10, padding:'10px 14px', fontSize:13, marginBottom:14 }}>{err}</div>
       )}
       {open
-        ? <Ficha a={open} saving={saving} onBack={() => setOpenId(null)} onDelete={() => remove(open)}
+        ? <Ficha a={open} mode={mode} saving={saving} onBack={() => setOpenId(null)} onDelete={() => remove(open)}
             onChange={fn => update(open.id, fn)}/>
         : <Overview list={list} onOpen={setOpenId} onNew={() => setShowNew(true)} mode={mode}/>}
       {showNew && <NewModal onClose={() => setShowNew(false)} onSave={create}/>}
@@ -634,7 +663,7 @@ function Overview({ list, onOpen, onNew, mode }) {
 /* ════════════════════════════════════════════════════ */
 /*  FICHA DA ASSESSORIA                                 */
 /* ════════════════════════════════════════════════════ */
-function Ficha({ a, onChange, onBack, onDelete, saving }) {
+function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
   const [tab, setTab] = useState(() => currentStep(a)?.k || 'geral')
   const set = (k, v) => onChange(x => ({ ...x, [k]: v }))
   const al = alertas(a)
@@ -697,7 +726,7 @@ function Ficha({ a, onChange, onBack, onDelete, saving }) {
 
         {/* Conteúdo da etapa */}
         <div style={{ minWidth:0 }}>
-          {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange}/>
+          {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange} mode={mode}/>
             : tab === 'pax' ? (
               <Card>
                 <div style={{ fontSize:17, fontWeight:700, marginBottom:4 }}>🛂 Passageiros</div>
@@ -790,7 +819,7 @@ function Passageiros({ list = [], setList, compact }) {
 }
 
 /* ─── Visão geral: dados, viajantes, próxima ação, histórico ── */
-function Geral({ a, set, onChange }) {
+function Geral({ a, set, onChange, mode }) {
   const custos = CUSTOS.reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0)
 
   return (
@@ -802,6 +831,8 @@ function Geral({ a, set, onChange }) {
           <Field type="date" value={a.proxima_data} onChange={v => set('proxima_data', v)}/>
         </div>
       </Card>
+
+      <PortalCard a={a} onChange={onChange} mode={mode}/>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
         {[['Valor da assessoria', fmtR(a.valor), T.gold], ['Custos lançados', fmtR(custos), T.muted],
@@ -843,6 +874,73 @@ function Geral({ a, set, onChange }) {
         ))}
       </Card>
     </div>
+  )
+}
+
+/* ─── Link de acompanhamento para o cliente (somente leitura) ── */
+function PortalCard({ a, onChange, mode }) {
+  const [url,    setUrl]    = useState('')
+  const [erro,   setErro]   = useState('')
+  const [copied, setCopied] = useState(false)
+  const p = a.portal || {}
+  const ativo = !!p.ativo && mode === 'cloud'
+
+  useEffect(() => {
+    setUrl(''); setErro('')
+    if (!ativo || !p.v) return
+    let vivo = true
+    portalLink(a.id, p.v).then(u => vivo && setUrl(u)).catch(() => vivo && setErro('Não foi possível gerar o link agora.'))
+    return () => { vivo = false }
+  }, [a.id, ativo, p.v])
+
+  const novoLink = () => {
+    if (p.ativo && !window.confirm('Gerar um novo link? O link enviado antes para o cliente deixa de funcionar.')) return
+    onChange(x => ({ ...x, portal:{ ativo:true, v:(x.portal?.v || 0) + 1, criado_em:new Date().toISOString() } }))
+  }
+  const desativar = () => {
+    if (!window.confirm('Desativar o link? O cliente não vai mais conseguir abrir a página.')) return
+    onChange(x => ({ ...x, portal:{ ...(x.portal || {}), ativo:false } }))
+  }
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+  }
+  const primeiro = String(a.cliente || '').trim().split(/\s+/)[0]
+  const msg = `Olá, ${primeiro}! ✈️ Por este link você acompanha, em tempo real, cada etapa da organização da sua viagem${a.destino ? ` para ${a.destino}` : ''}:\n\n${url}\n\nQualquer dúvida é só me chamar por aqui.`
+  const expira = a.fim ? addDays(a.fim, 7) : null
+
+  return (
+    <Card style={{ border:T.border }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:8 }}>
+        <div style={{ fontWeight:700, display:'flex', alignItems:'center', gap:8 }}><Link2 size={15} color={T.gold}/> Link de acompanhamento do cliente</div>
+        {ativo ? <Badge color={T.success} small>Ativo</Badge> : <Badge color={T.muted} small>{p.v ? 'Desativado' : 'Não criado'}</Badge>}
+      </div>
+      <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
+        O cliente vê só o andamento: etapas, próxima ação, data de embarque e os links de vouchers e bilhetes cadastrados.
+        Nada de passaporte, CPF, valores ou anotações internas — e ele não consegue alterar nada.
+        {expira && <> O link expira em <b style={{ color:T.text }}>{fmtD(expira)}/{expira.slice(0, 4)}</b> (7 dias após a volta).</>}
+      </div>
+      {mode !== 'cloud' ? (
+        <div style={{ fontSize:12, color:T.warn }}>Disponível apenas com os dados na nuvem.</div>
+      ) : !ativo ? (
+        <Btn small onClick={novoLink}><Link2 size={13}/> {p.v ? 'Gerar novo link' : 'Gerar link do cliente'}</Btn>
+      ) : (
+        <div style={{ display:'grid', gap:10 }}>
+          <input readOnly value={url || (erro ? '' : 'Gerando link…')} onFocus={e => e.target.select()}
+            style={{ ...inputS, color:url ? T.text : T.muted, fontSize:12 }}/>
+          {erro && <div style={{ fontSize:12, color:T.err }}>{erro}</div>}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <Btn small onClick={copiar} disabled={!url}><Copy size={12}/> {copied ? 'Copiado!' : 'Copiar link'}</Btn>
+            {a.phone && url && <a href={waText(a.phone, msg)} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <Btn small outline><MessageCircle size={12}/> Enviar no WhatsApp</Btn></a>}
+            {url && <a href={url} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <Btn small outline><ExternalLink size={12}/> Ver como o cliente</Btn></a>}
+            <Btn small outline onClick={novoLink} title="O link antigo deixa de funcionar">Gerar novo link</Btn>
+            <Btn small danger onClick={desativar}>Desativar</Btn>
+          </div>
+          <div style={{ fontSize:11, color:T.muted }}>A "Próxima ação" acima também aparece para o cliente — escreva pensando nele.</div>
+        </div>
+      )}
+    </Card>
   )
 }
 
