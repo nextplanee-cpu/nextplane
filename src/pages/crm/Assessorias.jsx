@@ -465,9 +465,25 @@ export default function Assessorias({ mode = 'local' }) {
 
   /* Carrega conforme o modo (navegador x nuvem) */
   const loadCloud = async () => {
-    try { setStore({ mode:'cloud', items: (await fetchAssessorias()).map(migrate) }); setErr('') }
+    try {
+      const items = (await fetchAssessorias()).map(migrate)
+      setStore({ mode:'cloud', items }); setErr('')
+      syncPortais(items)
+    }
     catch (e) { setErr(e.message === 'table_missing' ? 'table_missing' : e.status === 401 ? 'Chave de acesso inválida.' : 'Não foi possível carregar as assessorias da nuvem.') }
   }
+
+  /* Link do cliente sempre em dia: se o que o cliente vê ficou diferente do que a ficha
+     gera hoje (ficha antiga, etapas novas, migração), regrava sozinho — sem esperar uma edição */
+  const semData = v => JSON.stringify({ ...(v || {}), atualizado:undefined })
+  const syncPortais = items => items.forEach(a => {
+    if (!a.portal?.ativo || timers.current[a.id]) return
+    const view = portalView(a)
+    if (semData(view) === semData(a.portal_view)) return
+    const next = { ...a, portal_view:view }
+    setStore(prev => ({ ...prev, items: prev.items.map(x => x.id === a.id ? next : x) }))
+    saveAssessoria(next).catch(() => {})
+  })
   useEffect(() => {
     if (mode === 'cloud') loadCloud()
     else { setStore({ mode:'local', items: readLocal() }); setErr('') }
