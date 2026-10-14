@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const buf = await downloadFile(assId, f)
       if (!buf) return res.status(404).json({ error: 'not_found' })
-      return sendFile(res, buf, { nome: String(req.query.nome || 'anexo'), tipo: tipoReal(buf) })
+      return sendFile(res, buf, { nome: String(req.query.nome || 'anexo'), tipo: tipoReal(buf), baixar: req.query.baixar === '1' })
     }
     if (req.method === 'DELETE') {
       await removeFile(assId, f)

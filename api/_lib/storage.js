@@ -76,10 +76,10 @@ export async function removeFolder(assId) {
 }
 
 /* Resposta HTTP com o arquivo (abre no navegador; PDF no visualizador) */
-export function sendFile(res, buf, { nome = 'anexo', tipo }) {
+export function sendFile(res, buf, { nome = 'anexo', tipo, baixar = false }) {
   res.setHeader('Content-Type', TIPOS[tipo] ? tipo : 'application/octet-stream')
   res.setHeader('Content-Length', buf.length)
-  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(nome)}`)
+  res.setHeader('Content-Disposition', `${baixar ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(nome)}`)
   res.setHeader('Cache-Control', 'private, no-store')
   res.status(200).end(buf)
 }

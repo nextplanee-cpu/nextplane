@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       const buf = await downloadFile(tk.id, f)
       if (!buf) return res.status(404).json({ error: 'not_found' })
       audit({ email: 'cliente (link)' }, 'baixar_anexo', 'portal', tk.id, ip)
-      return sendFile(res, buf, meta)
+      return sendFile(res, buf, { ...meta, baixar: req.query.baixar === '1' })
     }
 
     audit({ email: 'cliente (link)' }, 'ver', 'portal', tk.id, ip)

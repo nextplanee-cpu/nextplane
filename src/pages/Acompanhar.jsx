@@ -266,12 +266,19 @@ function Arquivos({ it, token }) {
     padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(245,151,31,.35)', background: 'rgba(245,151,31,.06)', maxWidth: '100%' }
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-      {anexos.map(x => (
-        <a key={x.id} href={`/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`} target="_blank" rel="noreferrer" style={btn}>
-          <span>{x.tipo === 'application/pdf' ? '📄' : '🖼️'}</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.nome}</span>
-        </a>
-      ))}
+      {anexos.map(x => {
+        const url = `/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`
+        return (
+          <div key={x.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+            <span style={{ fontSize: 13, display: 'flex', gap: 6, minWidth: 0, flex: '1 1 160px' }}>
+              <span>{x.tipo === 'application/pdf' ? '📄' : '🖼️'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.nome}</span>
+            </span>
+            <a href={url} target="_blank" rel="noreferrer" style={btn}>👁 Abrir</a>
+            <a href={`${url}&baixar=1`} download={x.nome} style={{ ...btn, color: '#0B1220', background: C.brand, border: `1px solid ${C.brand}` }}>⬇ Baixar</a>
+          </div>
+        )
+      })}
       {it.link && <a href={it.link} target="_blank" rel="noreferrer noopener" style={btn}>🔗 Abrir link ↗</a>}
     </div>
   )
