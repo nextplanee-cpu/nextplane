@@ -16,6 +16,23 @@ export const createAssessoria = a => call('POST', { body: { data: assToData(a) }
 export const saveAssessoria   = a => call('PATCH', { query: `?id=${encodeURIComponent(a.id)}`, body: { data: assToData(a) } }).then(rowToAss)
 export const removeAssessoria = id => call('DELETE', { query: `?id=${encodeURIComponent(id)}` })
 
+/* Anexos (PDF/imagem de bilhetes, vouchers, apólices) — guardados criptografados no servidor */
+export const MAX_ANEXO = 4 * 1024 * 1024
+export async function uploadAnexo(assId, file) {
+  const q = `?a=${encodeURIComponent(assId)}&nome=${encodeURIComponent(file.name)}&tipo=${encodeURIComponent(file.type)}`
+  const res = await fetch(`/api/anexos${q}`, {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (res.status === 401) window.dispatchEvent(new Event('crm:unauthorized'))
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  return data
+}
+export const anexoUrl = (assId, x) =>
+  `/api/anexos?a=${encodeURIComponent(assId)}&f=${encodeURIComponent(x.id)}&nome=${encodeURIComponent(x.nome || 'anexo')}`
+export const removeAnexo = (assId, id) =>
+  apiFetch(`/api/anexos?a=${encodeURIComponent(assId)}&f=${encodeURIComponent(id)}`, { method: 'DELETE' })
+
 /* Link de acompanhamento do cliente (somente leitura) */
 export const portalLink = (id, v) =>
   apiFetch(`/api/portal?id=${encodeURIComponent(id)}&v=${encodeURIComponent(v)}`)

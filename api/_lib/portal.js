@@ -46,6 +46,29 @@ const https = v => {
   try { const u = new URL(String(v)); return u.protocol === 'https:' ? u.href : '' } catch { return '' }
 }
 const ESTADOS = ['feito', 'atual', 'pendente']
+const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : [])
+
+/* Detalhes de cada item da etapa (voo, hotel, seguro…): campos já escolhidos pelo CRM, sem valores */
+const item = it => ({
+  titulo: str(it.titulo, 160),
+  sub:    str(it.sub, 160),
+  status: str(it.status, 40),
+  ok:     !!it.ok,
+  campos: arr(it.campos, 16).map(c => ({ l: str(c.l, 40), v: str(c.v, 200) })).filter(c => c.v),
+  texto:  str(it.texto, 4000),
+  link:   https(it.link),
+  anexos: arr(it.anexos, 10).filter(x => FILE_ID.test(x?.id)).map(x => ({ id: x.id, nome: str(x.nome, 120), tipo: str(x.tipo, 40) })),
+})
+
+/* Ids dos anexos que o cliente pode baixar (só os que estão no retrato do link) */
+export const anexoDoPortal = (view, fileId) => {
+  for (const e of arr(view?.etapas, 20)) for (const it of arr(e.itens, 60)) {
+    const hit = arr(it.anexos, 10).find(x => x?.id === fileId)
+    if (hit) return { nome: str(hit.nome, 120) || 'anexo', tipo: str(hit.tipo, 40) }
+  }
+  return null
+}
 
 export function publicView(view = {}, { status, responsavel } = {}) {
   return {
@@ -66,11 +89,9 @@ export function publicView(view = {}, { status, responsavel } = {}) {
       total:  Number(e.total) || 0,
       unit:   str(e.unit, 40),
       goal:   str(e.goal, 200),
+      itens:  arr(e.itens, 60).map(item),
     })),
     proxima: view.proxima?.acao ? { acao: str(view.proxima.acao, 200), data: date(view.proxima.data) } : null,
-    documentos: (Array.isArray(view.documentos) ? view.documentos : []).slice(0, 60)
-      .map(d => ({ grupo: str(d.grupo, 40), icon: str(d.icon, 8), titulo: str(d.titulo, 120), sub: str(d.sub, 120), link: https(d.link) }))
-      .filter(d => d.link),
     atualizado: str(view.atualizado, 30),
   }
 }

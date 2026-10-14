@@ -60,7 +60,7 @@ export default function Acompanhar() {
           : st.erro === 410 ? <Aviso titulo="Este link expirou" texto="A viagem já terminou. Se precisar de algo, fale com a gente pelo WhatsApp." wa/>
           : st.erro ? <Aviso titulo={st.erro === 404 ? 'Link indisponível' : 'Não foi possível carregar agora'}
               texto={st.erro === 404 ? 'Este link não existe mais ou foi desativado. Peça um novo ao seu consultor.' : 'Tente novamente em alguns instantes.'} wa/>
-          : <Viagem v={st.data}/>}
+          : <Viagem v={st.data} token={token}/>}
       </main>
 
       <footer style={{ borderTop: `1px solid ${C.line}`, padding: '20px 0', textAlign: 'center', fontSize: 11, color: C.faint }}>
@@ -89,7 +89,8 @@ const WaBtn = ({ texto, label = 'Falar no WhatsApp' }) => (
   </a>
 )
 
-function Viagem({ v }) {
+function Viagem({ v, token }) {
+  const [aberta, setAberta] = useState({})
   const etapas = v.etapas || []
   const feitas = etapas.filter(e => e.estado === 'feito').length
   const pct = etapas.length ? Math.round((feitas / etapas.length) * 100) : 0
@@ -104,7 +105,7 @@ function Viagem({ v }) {
   else if (dIda !== null && (dVolta === null || dVolta >= 0)) contagem = <>Boa viagem! Aproveite cada momento 🌍</>
   else if (dVolta !== null && dVolta < 0) contagem = <>Esperamos que a viagem tenha sido incrível 💛</>
 
-  const grupos = (v.documentos || []).reduce((acc, d) => ((acc[d.grupo] ||= { icon: d.icon, itens: [] }).itens.push(d), acc), {})
+  const docs = etapas.flatMap(e => (e.itens || []).filter(it => it.link || it.anexos?.length).map(it => ({ ...it, etapa: e })))
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
@@ -143,11 +144,14 @@ function Viagem({ v }) {
 
       {/* Etapas */}
       <Card>
-        <h2 style={{ ...serif, fontSize: 24, fontWeight: 600, margin: '0 0 16px' }}>Etapas da sua assessoria</h2>
+        <h2 style={{ ...serif, fontSize: 24, fontWeight: 600, margin: '0 0 4px' }}>Etapas da sua assessoria</h2>
+        <div style={{ fontSize: 12, color: C.muted, margin: '0 0 16px' }}>Toque em uma etapa para ver os detalhes.</div>
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {etapas.map((e, i) => {
             const ult = i === etapas.length - 1
             const cor = e.estado === 'feito' ? C.ok : e.estado === 'atual' ? C.brand : C.faint
+            const temItens = (e.itens || []).length > 0
+            const open = aberta[e.k]
             return (
               <li key={e.k} style={{ display: 'flex', gap: 14 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -159,15 +163,28 @@ function Viagem({ v }) {
                   </div>
                   {!ult && <div style={{ width: 2, flex: 1, minHeight: 18, background: e.estado === 'feito' ? 'rgba(34,197,94,.45)' : C.line }}/>}
                 </div>
-                <div style={{ paddingBottom: ult ? 0 : 18, paddingTop: 4, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: e.estado === 'pendente' ? 500 : 700, color: e.estado === 'pendente' ? C.muted : C.text }}>
-                    {e.icon} {e.nome}
-                  </div>
-                  <div style={{ fontSize: 12, color: cor, marginTop: 2 }}>
-                    {e.estado === 'feito' ? 'Concluída' : e.estado === 'atual' ? 'Em andamento agora' : 'Próximas etapas'}
-                    {e.estado !== 'feito' && e.total > 0 && e.done > 0 && <span style={{ color: C.muted }}> · {e.done}/{e.total} {e.unit}</span>}
-                  </div>
-                  {e.estado === 'atual' && e.goal && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{e.goal}</div>}
+                <div style={{ paddingBottom: ult ? 0 : 18, paddingTop: 4, minWidth: 0, flex: 1 }}>
+                  <button type="button" disabled={!temItens} onClick={() => setAberta(p => ({ ...p, [e.k]: !p[e.k] }))} aria-expanded={!!open}
+                    style={{ all: 'unset', cursor: temItens ? 'pointer' : 'default', display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: e.estado === 'pendente' ? 500 : 700, color: e.estado === 'pendente' ? C.muted : C.text }}>
+                        {e.icon} {e.nome}
+                      </div>
+                      <div style={{ fontSize: 12, color: cor, marginTop: 2 }}>
+                        {e.estado === 'feito' ? 'Concluída' : e.estado === 'atual' ? 'Em andamento agora' : 'Próximas etapas'}
+                        {e.estado !== 'feito' && e.total > 0 && e.done > 0 && <span style={{ color: C.muted }}> · {e.done}/{e.total} {e.unit}</span>}
+                        {temItens && <span style={{ color: C.muted }}> · {e.itens.length} {e.itens.length > 1 ? 'itens' : 'item'}</span>}
+                      </div>
+                      {e.estado === 'atual' && e.goal && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{e.goal}</div>}
+                    </div>
+                    {temItens && <span style={{ width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', flexShrink: 0,
+                      border: `1px solid ${C.line}`, color: C.brand, fontSize: 14, transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>}
+                  </button>
+                  {temItens && open && (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                      {e.itens.map((it, j) => <ItemCard key={j} it={it} token={token}/>)}
+                    </div>
+                  )}
                 </div>
               </li>
             )
@@ -175,28 +192,18 @@ function Viagem({ v }) {
         </ol>
       </Card>
 
-      {/* Vouchers e bilhetes */}
-      {Object.keys(grupos).length > 0 && (
+      {/* Bilhetes e vouchers (tudo num lugar só) */}
+      {docs.length > 0 && (
         <Card>
           <h2 style={{ ...serif, fontSize: 24, fontWeight: 600, margin: '0 0 4px' }}>Seus documentos</h2>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Bilhetes, vouchers e apólices já disponíveis. Salve no celular antes de viajar.</div>
-          <div style={{ display: 'grid', gap: 16 }}>
-            {Object.entries(grupos).map(([g, { icon, itens }]) => (
-              <div key={g}>
-                <div style={{ fontSize: 11, color: C.faint, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>{icon} {g}</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {itens.map((d, i) => (
-                    <a key={i} href={d.link} target="_blank" rel="noreferrer noopener" className="np-doc"
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, textDecoration: 'none',
-                        color: C.text, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.line}`, transition: 'border-color .2s' }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.titulo}</div>
-                        {d.sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{d.sub}</div>}
-                      </div>
-                      <span style={{ fontSize: 12, color: C.brand, fontWeight: 700, whiteSpace: 'nowrap' }}>Abrir ↗</span>
-                    </a>
-                  ))}
-                </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {docs.map((d, i) => (
+              <div key={i} style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.line}` }}>
+                <div style={{ fontSize: 11, color: C.faint, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{d.etapa.icon} {d.etapa.nome}</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{d.titulo}</div>
+                {d.sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{d.sub}</div>}
+                <Arquivos it={d} token={token}/>
               </div>
             ))}
           </div>
@@ -221,3 +228,50 @@ function Viagem({ v }) {
 const Card = ({ children, style }) => (
   <section style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 20, ...style }}>{children}</section>
 )
+
+/* Um voo, hotel, seguro, ingresso ou dia do roteiro */
+function ItemCard({ it, token }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.line}`, borderRadius: 10, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{it.titulo}</div>
+          {it.sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{it.sub}</div>}
+        </div>
+        {it.status && <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', padding: '3px 9px', borderRadius: 999,
+          color: it.ok ? C.ok : C.brand, background: it.ok ? 'rgba(34,197,94,.12)' : 'rgba(245,151,31,.12)' }}>{it.status}</span>}
+      </div>
+      {(it.campos || []).length > 0 && (
+        <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '8px 12px', margin: '10px 0 0' }}>
+          {it.campos.map(c => (
+            <div key={c.l} style={{ minWidth: 0 }}>
+              <dt style={{ fontSize: 11, color: C.faint }}>{c.l}</dt>
+              <dd style={{ fontSize: 13, margin: '2px 0 0', overflowWrap: 'anywhere' }}>{c.v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {it.texto && <p style={{ fontSize: 13, color: C.muted, whiteSpace: 'pre-wrap', margin: '8px 0 0', lineHeight: 1.55 }}>{it.texto}</p>}
+      <Arquivos it={it} token={token}/>
+    </div>
+  )
+}
+
+/* Botões dos anexos (baixados pelo link do cliente) e do link externo */
+function Arquivos({ it, token }) {
+  const anexos = it.anexos || []
+  if (!anexos.length && !it.link) return null
+  const btn = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.brand, textDecoration: 'none',
+    padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(245,151,31,.35)', background: 'rgba(245,151,31,.06)', maxWidth: '100%' }
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+      {anexos.map(x => (
+        <a key={x.id} href={`/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`} target="_blank" rel="noreferrer" style={btn}>
+          <span>{x.tipo === 'application/pdf' ? '📄' : '🖼️'}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.nome}</span>
+        </a>
+      ))}
+      {it.link && <a href={it.link} target="_blank" rel="noreferrer noopener" style={btn}>🔗 Abrir link ↗</a>}
+    </div>
+  )
+}

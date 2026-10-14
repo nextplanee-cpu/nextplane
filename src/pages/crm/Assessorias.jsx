@@ -7,10 +7,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, X, Search, ArrowLeft, Trash2, MessageCircle, Copy, AlertTriangle,
-  Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2,
+  Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
 } from 'lucide-react'
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
+  uploadAnexo, removeAnexo, anexoUrl, MAX_ANEXO,
 } from '../../lib/assessoriasApi'
 import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
 
@@ -219,14 +220,34 @@ function alertas(a) {
 }
 
 /* ─── Link do cliente: só o que ele pode ver (o servidor filtra de novo) ── */
-const DOC_GRUPO = { aereo:'Aéreo', hotel:'Hospedagem', seguro:'Seguro viagem', exp:'Ingressos e trem', internet:'Internet' }
-const docInfo = (k, it) => ({
-  aereo:    [trechoDe(it) || 'Voo', [ciaDe(it.cia), it.voo].filter(Boolean).join(' '), it.data],
-  hotel:    [it.hotel || 'Hospedagem', it.cidade, it.checkin],
-  seguro:   [it.seguradora || 'Seguro viagem', it.plano, it.inicio],
-  exp:      [it.nome || it.tipo, it.cidade, it.data],
-  internet: [[it.tipo, it.operadora].filter(Boolean).join(' · '), it.regiao, it.inicio],
-})[k]
+const fmtDA = d => (d ? d.split('-').reverse().join('/') : '')
+const quando = (d, h, voo) => [fmtDA(d), h, voo].filter(Boolean).join(' · ')
+/* O que aparece para o cliente em cada item (nunca valores) */
+const detalhe = (k, it) => ({
+  aereo: () => ({ titulo:trechoDe(it) || 'Voo', sub:ciaDe(it.cia), campos: idaVolta(it)
+    ? [{ l:'Ida', v:quando(it.data, it.horario, it.voo) }, { l:'Volta', v:quando(it.data_volta, it.horario_volta, it.voo_volta) }, { l:'Localizador', v:it.localizador }]
+    : [{ l:'Data', v:quando(it.data, it.horario) }, { l:'Voo', v:it.voo }, { l:'Localizador', v:it.localizador }] }),
+  hotel: () => ({ titulo:it.hotel || 'Hospedagem', sub:it.cidade, campos:[
+    { l:'Check-in', v:fmtDA(it.checkin) }, { l:'Check-out', v:fmtDA(it.checkout) }, { l:'Quarto', v:it.quarto },
+    { l:'Café da manhã', v:it.hotel ? (it.cafe ? 'Incluso' : 'Não incluso') : '' }, { l:'Cancelamento', v:it.cancelamento }, { l:'Nº da reserva', v:it.confirmacao }] }),
+  seguro: () => ({ titulo:it.seguradora || 'Seguro viagem', sub:it.plano, campos:[
+    { l:'Cobertura médica', v:it.cobertura }, { l:'Vigência', v:it.inicio ? `${fmtDA(it.inicio)}${it.fim ? ` a ${fmtDA(it.fim)}` : ''}` : '' },
+    { l:'Viajantes', v:it.viajantes }, { l:'Nº da apólice', v:it.apolice }] }),
+  exp: () => ({ titulo:it.nome || it.tipo || 'Ingresso', sub:[it.tipo, it.cidade].filter(Boolean).join(' · '), campos:[
+    { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] }),
+  internet: () => ({ titulo:[it.tipo, it.operadora].filter(Boolean).join(' · ') || 'Internet', sub:it.regiao, campos:[
+    { l:'Dados', v:it.dados }, { l:'Ativação', v:fmtDA(it.inicio) }, { l:'Dias', v:it.dias }] }),
+})[k]()
+const itensDoPortal = (a, s) => {
+  if (s.kind === 'items') return (a[s.k] || []).map(it => ({
+    ...detalhe(s.k, it), status:it.status || '', ok:s.done.includes(it.status), link:it.link || '',
+    anexos:(it.anexos || []).map(x => ({ id:x.id, nome:x.nome, tipo:x.tipo })),
+  }))
+  if (s.dayByDay) return (a.roteiro_dias || []).filter(d => d.programacao || d.cidade).map((d, i) => ({
+    titulo:`Dia ${i + 1}${d.data ? ` — ${fmtDA(d.data)}` : ''}`, sub:d.cidade || '', texto:d.programacao || '',
+  }))
+  return []
+}
 function portalView(a) {
   const atual = currentStep(a)
   return {
@@ -235,13 +256,9 @@ function portalView(a) {
     etapas: STEPS.filter(s => !a.na?.[s.k]).map(s => {
       const p = progress(a, s)
       return { k:s.k, nome:s.short, icon:s.icon, estado:p.complete ? 'feito' : s.k === atual?.k ? 'atual' : 'pendente',
-        done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '' }
+        done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '', itens:itensDoPortal(a, s) }
     }),
     proxima: a.proxima_acao ? { acao:a.proxima_acao, data:a.proxima_data || '' } : null,
-    documentos: EMISSAO.filter(k => !a.na?.[k]).flatMap(k => (a[k] || []).filter(it => it.link).map(it => {
-      const [titulo, sub, data] = docInfo(k, it)
-      return { grupo:DOC_GRUPO[k], icon:STEP[k].icon, titulo, sub:[sub, data && fmtD(data)].filter(Boolean).join(' · '), link:it.link }
-    })),
     atualizado: new Date().toISOString(),
   }
 }
@@ -733,7 +750,7 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
                 <div style={{ fontSize:12, color:T.muted, marginBottom:14 }}>Dados de cada viajante para emissões, seguro e reservas.</div>
                 <Passageiros list={a.passageiros || []} setList={fn => onChange(x => ({ ...x, passageiros: fn(x.passageiros || []) }))}/>
               </Card>)
-            : <StepPanel s={STEP[tab]} a={a} onChange={onChange}/>}
+            : <StepPanel s={STEP[tab]} a={a} onChange={onChange} mode={mode}/>}
         </div>
       </div>
       <datalist id="ass-cidades">{cidadesDe(a).map(c => <option key={c} value={c}/>)}</datalist>
@@ -915,7 +932,8 @@ function PortalCard({ a, onChange, mode }) {
         {ativo ? <Badge color={T.success} small>Ativo</Badge> : <Badge color={T.muted} small>{p.v ? 'Desativado' : 'Não criado'}</Badge>}
       </div>
       <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
-        O cliente vê só o andamento: etapas, próxima ação, data de embarque e os links de vouchers e bilhetes cadastrados.
+        O cliente vê o andamento e os detalhes de cada etapa: voos, hotéis, seguro, ingressos e internet (com localizador e nº da reserva),
+        roteiro dia a dia, próxima ação e os anexos e links de bilhetes e vouchers.
         Nada de passaporte, CPF, valores ou anotações internas — e ele não consegue alterar nada.
         {expira && <> O link expira em <b style={{ color:T.text }}>{fmtD(expira)}/{expira.slice(0, 4)}</b> (7 dias após a volta).</>}
       </div>
@@ -952,7 +970,7 @@ const IconDel = ({ onClick }) => (
 )
 
 /* ─── Painel de uma etapa ────────────────────────────── */
-function StepPanel({ s, a, onChange }) {
+function StepPanel({ s, a, onChange, mode }) {
   const p = progress(a, s)
   const na = !!a.na?.[s.k]
   return (
@@ -978,7 +996,7 @@ function StepPanel({ s, a, onChange }) {
       </Card>
 
       {!na && s.dayByDay && <DiaADia a={a} onChange={onChange}/>}
-      {!na && (s.kind === 'check' ? <Checklist s={s} a={a} onChange={onChange}/> : <Items s={s} a={a} onChange={onChange}/>)}
+      {!na && (s.kind === 'check' ? <Checklist s={s} a={a} onChange={onChange}/> : <Items s={s} a={a} onChange={onChange} mode={mode}/>)}
 
       {!na && s.out && (
         <div style={{ fontSize:12, color:p.complete ? T.success : T.muted, display:'flex', gap:6, alignItems:'center' }}>
@@ -1058,11 +1076,16 @@ function Checklist({ s, a, onChange }) {
   )
 }
 
-function Items({ s, a, onChange }) {
+function Items({ s, a, onChange, mode }) {
   const items = a[s.k] || []
   const setItem = (i, k, v) => onChange(x => ({ ...x, [s.k]: x[s.k].map((it, j) => j === i ? { ...it, [k]: v } : it) }))
   const add = () => onChange(x => ({ ...x, [s.k]: [...(x[s.k] || []), { id:uid(), ...s.blank }] }))
-  const del = i => { if (window.confirm('Remover este item?')) onChange(x => ({ ...x, [s.k]: x[s.k].filter((_, j) => j !== i) })) }
+  const del = i => {
+    if (!window.confirm('Remover este item?')) return
+    if (mode === 'cloud') (items[i]?.anexos || []).forEach(x => removeAnexo(a.id, x.id).catch(() => {}))
+    onChange(x => ({ ...x, [s.k]: x[s.k].filter((_, j) => j !== i) }))
+  }
+  const setAnexos = (id, fn) => onChange(x => ({ ...x, [s.k]: x[s.k].map(it => it.id === id ? { ...it, anexos: fn(it.anexos || []) } : it) }))
 
   return (
     <div style={{ display:'grid', gap:10 }}>
@@ -1117,6 +1140,7 @@ function Items({ s, a, onChange }) {
                 </div>
               ))}
             </div>
+            <Anexos assId={a.id} list={it.anexos || []} mode={mode} setList={fn => setAnexos(it.id, fn)}/>
           </Card>
         )
       })}
@@ -1131,6 +1155,62 @@ function Items({ s, a, onChange }) {
 }
 
 /* ─── Templates da etapa ─────────────────────────────── */
+/* Anexos do item (bilhete, voucher, apólice) — aparecem também no link do cliente */
+const ERRO_ANEXO = { too_large:'Arquivo maior que 4 MB.', bad_type:'Envie PDF, JPG, PNG ou WEBP.', empty:'Arquivo vazio.' }
+const fmtKB = n => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+function Anexos({ assId, list, setList, mode }) {
+  const [busy, setBusy] = useState('')
+  const [erro, setErro] = useState('')
+  const input = useRef(null)
+  const cloud = mode === 'cloud'
+
+  const enviar = async files => {
+    setErro('')
+    for (const file of files) {
+      if (file.size > MAX_ANEXO) { setErro(`${file.name}: ${ERRO_ANEXO.too_large}`); continue }
+      setBusy(file.name)
+      try {
+        const x = await uploadAnexo(assId, file)
+        setList(prev => [...prev, x])
+      } catch (e) { setErro(`${file.name}: ${ERRO_ANEXO[e.message] || 'não foi possível enviar.'}`) }
+    }
+    setBusy('')
+    if (input.current) input.current.value = ''
+  }
+  const remover = async x => {
+    if (!window.confirm(`Remover o anexo "${x.nome}"? O cliente também deixa de vê-lo.`)) return
+    try { await removeAnexo(assId, x.id) } catch { setErro('Não foi possível remover agora.'); return }
+    setList(prev => prev.filter(y => y.id !== x.id))
+  }
+
+  return (
+    <div style={{ marginTop:12, paddingTop:10, borderTop:T.borderN }}>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+        {list.map(x => (
+          <span key={x.id} style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(212,175,55,0.08)',
+            border:'1px solid rgba(212,175,55,0.25)', borderRadius:8, padding:'4px 6px 4px 10px', fontSize:12, maxWidth:'100%' }}>
+            <FileText size={13} color={T.gold}/>
+            <a href={cloud ? anexoUrl(assId, x) : undefined} target="_blank" rel="noreferrer"
+              style={{ color:T.text, textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{x.nome}</a>
+            {x.tamanho > 0 && <span style={{ color:T.muted, fontSize:11 }}>{fmtKB(x.tamanho)}</span>}
+            {cloud && <button onClick={() => remover(x)} title="Remover anexo"
+              style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', display:'flex', padding:2 }}><X size={12}/></button>}
+          </span>
+        ))}
+        {cloud ? <>
+          <Btn small outline onClick={() => input.current?.click()} disabled={!!busy}>
+            <Paperclip size={12}/> {busy ? `Enviando ${busy.length > 24 ? `${busy.slice(0, 22)}…` : busy}` : 'Anexar PDF ou imagem'}
+          </Btn>
+          <input ref={input} type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" style={{ display:'none' }}
+            onChange={e => enviar([...e.target.files])}/>
+        </> : <span style={{ fontSize:11, color:T.muted }}>Anexos disponíveis só com os dados na nuvem.</span>}
+      </div>
+      {erro && <div style={{ fontSize:12, color:T.err, marginTop:6 }}>{erro}</div>}
+    </div>
+  )
+}
+
 function Templates({ s, a }) {
   const [sel, setSel] = useState(null)
   const [copied, setCopied] = useState(false)

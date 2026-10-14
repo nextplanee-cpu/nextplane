@@ -11,7 +11,8 @@
 import { requireUser } from './_lib/auth.js'
 import { clientIp, rateLimit } from './_lib/ratelimit.js'
 import { dbConfigured, getAssessoria, getAssessoriaOwner, audit } from './_lib/supabase.js'
-import { makeToken, readToken, expiraEm, publicView } from './_lib/portal.js'
+import { makeToken, readToken, expiraEm, publicView, anexoDoPortal } from './_lib/portal.js'
+import { isFileId, downloadFile, sendFile } from './_lib/storage.js'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -47,6 +48,17 @@ export default async function handler(req, res) {
     }
     const expira = expiraEm(a.fim)
     if (expira && today() > expira) return res.status(410).json({ error: 'expired' })
+
+    /* Anexo (bilhete, voucher…): só os que aparecem na página do cliente */
+    if (req.query.f) {
+      const f = String(req.query.f)
+      const meta = isFileId(f) && anexoDoPortal(a.portal_view, f)
+      if (!meta) return res.status(404).json({ error: 'not_found' })
+      const buf = await downloadFile(tk.id, f)
+      if (!buf) return res.status(404).json({ error: 'not_found' })
+      audit({ email: 'cliente (link)' }, 'baixar_anexo', 'portal', tk.id, ip)
+      return sendFile(res, buf, meta)
+    }
 
     audit({ email: 'cliente (link)' }, 'ver', 'portal', tk.id, ip)
     return res.status(200).json({ ...publicView(a.portal_view, a), expira })

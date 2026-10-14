@@ -54,3 +54,22 @@ export function decryptJSON(v, fallback) {
   if (!isEncrypted(v)) return v ?? fallback
   try { return JSON.parse(decrypt(v)) } catch { return fallback }
 }
+
+/* Arquivos (anexos): "NPE1" + iv(12) + tag(16) + conteúdo cifrado */
+const FILE_MAGIC = Buffer.from('NPE1')
+export function encryptBuffer(buf) {
+  const k = key()
+  if (!k) return buf
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', k, iv)
+  const ct = Buffer.concat([cipher.update(buf), cipher.final()])
+  return Buffer.concat([FILE_MAGIC, iv, cipher.getAuthTag(), ct])
+}
+export function decryptBuffer(buf) {
+  if (buf.length < 32 || !buf.subarray(0, 4).equals(FILE_MAGIC)) return buf
+  const k = key()
+  if (!k) throw new Error('arquivo criptografado e CRM_ENCRYPTION_KEY ausente')
+  const decipher = crypto.createDecipheriv('aes-256-gcm', k, buf.subarray(4, 16))
+  decipher.setAuthTag(buf.subarray(16, 32))
+  return Buffer.concat([decipher.update(buf.subarray(32)), decipher.final()])
+}

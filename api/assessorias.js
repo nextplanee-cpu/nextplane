@@ -12,6 +12,7 @@
  */
 import { requireUser } from './_lib/auth.js'
 import { clientIp } from './_lib/ratelimit.js'
+import { removeFolder } from './_lib/storage.js'
 import {
   dbConfigured, listAssessorias, getAssessoriaOwner, insertAssessoria, updateAssessoria, deleteAssessoria, audit,
 } from './_lib/supabase.js'
@@ -66,6 +67,7 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'bad_request' })
       const deleted = await deleteAssessoria(id)
       if (!deleted?.length) return res.status(404).json({ error: 'not_found' })
+      await removeFolder(id).catch(err => console.error('[assessorias] anexos', err.message))
       audit(user, 'excluir', 'assessoria', id, ip)
       return res.status(200).json({ ok: true })
     }
