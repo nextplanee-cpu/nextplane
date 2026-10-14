@@ -270,7 +270,7 @@ function Arquivos({ it, token }) {
         const url = `/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`
         return (
           <div key={x.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-            <span style={{ fontSize: 13, display: 'flex', gap: 6, minWidth: 0, flex: '1 1 160px' }}>
+            <span style={{ fontSize: 13, display: 'flex', gap: 6, minWidth: 0, flex: '1 1 100%' }}>
               <span>{x.tipo === 'application/pdf' ? '📄' : '🖼️'}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.nome}</span>
             </span>
