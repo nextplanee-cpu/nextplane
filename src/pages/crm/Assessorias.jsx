@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, X, Search, ArrowLeft, Trash2, MessageCircle, Copy, AlertTriangle,
   Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
-  Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall,
+  Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall, TrainFront, Car, Ban, RotateCcw,
   Circle, MinusCircle, Target, FolderOpen, History, NotebookPen, MessageSquareText, Briefcase,
   LayoutList, User, Settings,
 } from 'lucide-react'
@@ -27,7 +27,7 @@ import {
 /* Ícone de linha de cada etapa (a interface do CRM não usa emoji; o link do cliente usa s.icon) */
 const STEP_ICON = {
   onboarding:Handshake, rota:Compass, aereo:Plane, hotel:BedDouble, seguro:ShieldCheck,
-  exp:Ticket, internet:Wifi, roteiro:CalendarDays, previagem:PhoneCall,
+  exp:Ticket, internet:Wifi, roteiro:CalendarDays, previagem:Users, trem:TrainFront, aluguel:Car,
 }
 
 /* ─── Etapas ─────────────────────────────────────────── */
@@ -36,6 +36,8 @@ const HOTEL_ST    = ['Pendente','Cotado','Aguardando cliente','Reservado','Vouch
 const SEGURO_ST   = ['Pendente','Cotado','Aguardando cliente','Contratado','Apólice enviada']
 const EXP_ST      = ['Definido','Cotado','Aprovado','Comprado','Voucher anexado']
 const INTERNET_ST = ['Pendente','Cotado','Comprado','Enviado ao cliente']
+const TREM_ST     = ['Pendente','Cotado','Aguardando cliente','Comprado','Bilhete anexado']
+const ALUGUEL_ST  = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
 
 const STEPS = [
   { k:'onboarding', icon:'🟡', name:'Onboarding', short:'Onboarding', color:'#F59E0B', kind:'check',
@@ -57,6 +59,27 @@ const STEPS = [
       { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
+  { k:'trem', icon:'🚆', name:'Trem', short:'Trem', color:'#14B8A6', kind:'items', unit:'trechos comprados', add:'trecho de trem',
+    statuses:TREM_ST, done:['Comprado','Bilhete anexado'], blank:{ tipo:'Trem', de:'', para:'', data:'', hora:'', empresa:'', classe:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
+    fields:[
+      { k:'tipo', l:'Tipo', t:'select', opts:['Trem','Ônibus','Ferry / barco','Transfer'] },
+      { k:'de', l:'Saída (cidade / estação)', ph:'Paris — Gare du Nord', w:2 }, { k:'para', l:'Chegada (cidade / estação)', ph:'Londres — St Pancras', w:2 },
+      { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
+      { k:'empresa', l:'Empresa', ph:'Eurostar, Trenitalia, Renfe…' }, { k:'classe', l:'Classe', ph:'Standard, 1ª classe…' },
+      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
+    ] },
+  { k:'aluguel', icon:'🚗', name:'Aluguel de carro ou moto', short:'Aluguel de veículo', color:'#64748B', kind:'items', unit:'reservados', add:'aluguel',
+    statuses:ALUGUEL_ST, done:['Reservado','Voucher anexado'], blank:{ tipo:'Carro', locadora:'', categoria:'', retirada_local:'', retirada_data:'', retirada_hora:'', devolucao_local:'', devolucao_data:'', devolucao_hora:'', seguro:'', valor:'', reserva:'', link:'', status:'Pendente' },
+    fields:[
+      { k:'tipo', l:'Veículo', t:'select', opts:['Carro','Moto','Van','Motorhome'] },
+      { k:'locadora', l:'Locadora', ph:'Localiza, Hertz, Europcar…' }, { k:'categoria', l:'Modelo / categoria', ph:'SUV automático', w:2 },
+      { k:'_ret', sep:'Retirada' },
+      { k:'retirada_local', l:'Local de retirada', ph:'Aeroporto de Lisboa', w:2 }, { k:'retirada_data', l:'Data', t:'date' }, { k:'retirada_hora', l:'Horário', t:'time' },
+      { k:'_dev', sep:'Devolução' },
+      { k:'devolucao_local', l:'Local de devolução', ph:'Porto — centro', w:2 }, { k:'devolucao_data', l:'Data', t:'date' }, { k:'devolucao_hora', l:'Horário', t:'time' },
+      { k:'_fim', sep:' ' },
+      { k:'seguro', l:'Seguro / proteção', ph:'Cobertura total' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+    ] },
   { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
     statuses:HOTEL_ST, done:['Reservado','Voucher anexado'], blank:{ cidade:'', hotel:'', checkin:'', checkout:'', quarto:'', cafe:false, cancelamento:'', valor:'', confirmacao:'', link:'', status:'Pendente' },
     fields:[
@@ -71,11 +94,11 @@ const STEPS = [
       { k:'inicio', l:'Início', t:'date' }, { k:'fim', l:'Fim', t:'date' }, { k:'viajantes', l:'Viajantes', t:'number' },
       { k:'valor', l:'Valor R$', t:'number' }, { k:'apolice', l:'Nº apólice' }, { k:'link', l:'Apólice (link)', ph:'https://', w:2 },
     ] },
-  { k:'exp', icon:'🎟️', name:'Ingressos e trem', short:'Ingressos e trem', color:'#EC4899', kind:'items', unit:'comprados', add:'ingresso ou trem',
+  { k:'exp', icon:'🎟️', name:'Ingressos e passeios', short:'Ingressos', color:'#EC4899', kind:'items', unit:'comprados', add:'ingresso ou passeio',
     statuses:EXP_ST, done:['Comprado','Voucher anexado'], blank:{ tipo:'Ingresso', nome:'', cidade:'', data:'', hora:'', passageiros:'', valor:'', reserva:'', link:'', status:'Definido' },
     fields:[
-      { k:'tipo', l:'Tipo', t:'select', opts:['Ingresso','Trem','Passeio','Tour','Museu','Parque','Evento','Transfer','Ônibus','Outro'] },
-      { k:'nome', l:'Nome / trecho', ph:'Louvre · Paris → Londres', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
+      { k:'tipo', l:'Tipo', t:'select', opts:['Ingresso','Passeio','Tour','Museu','Parque','Evento','Show','Restaurante','Outro'] },
+      { k:'nome', l:'Nome', ph:'Museu do Louvre', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
       { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'internet', icon:'📶', name:'Internet', short:'Internet', color:'#0EA5E9', kind:'items', unit:'comprados', add:'chip / eSIM',
@@ -88,13 +111,13 @@ const STEPS = [
   { k:'roteiro', icon:'🗓️', name:'Definição de roteiro final (dia a dia)', short:'Roteiro final', color:'#A78BFA', kind:'check', dayByDay:true,
     goal:'Montar a programação completa de cada dia da viagem.', out:'Roteiro dia a dia aprovado e entregue ao cliente.',
     checks:['Roteiro dia a dia montado','Horários e deslocamentos conferidos','Voos, hotéis e ingressos no roteiro','Dicas de restaurantes e passeios','Roteiro enviado ao cliente','Cliente aprovou o roteiro final'] },
-  { k:'previagem', icon:'📞', name:'Call prévia à viagem — alinhamentos finais', short:'Call prévia', color:'#F97316', kind:'check',
+  { k:'previagem', icon:'🤝', name:'Reunião final — alinhamentos antes da viagem', short:'Reunião final', color:'#F97316', kind:'check',
     goal:'Alinhar tudo com o cliente antes do embarque.', out:'Cliente pronto para viajar.',
-    checks:['Call agendada','Roteiro final revisado com o cliente','Voos e check-in','Hospedagens conferidas','Seguro viagem conferido','Ingressos e trens conferidos','Internet / eSIM pronto','Documentação (passaporte / visto)','Bagagem e clima','Dinheiro e cartões','Dúvidas do cliente','Call realizada'] },
+    checks:['Reunião agendada','Roteiro final revisado com o cliente','Voos e check-in','Trens e aluguel de veículo conferidos','Hospedagens conferidas','Seguro viagem conferido','Ingressos conferidos','Internet / eSIM pronto','Documentação (passaporte / visto)','Bagagem e clima','Dinheiro e cartões','Dúvidas do cliente','Reunião realizada'] },
 ]
 const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
-const EMISSAO = ['aereo','hotel','seguro','exp','internet']
-const CUSTOS  = ['aereo','hotel','seguro','exp','internet']
+const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
+const CUSTOS  = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
 
 /* Fichas criadas na versão anterior: transportes passam para "Ingressos e trem" */
 const TRANSP_MAP = { 'Pendente':'Definido', 'Cotado':'Cotado', 'Aguardando cliente':'Aprovado', 'Reservado':'Comprado', 'Voucher anexado':'Voucher anexado' }
@@ -119,12 +142,29 @@ const migrate = a => {
     }
     return out
   }) }
-  if (!a.transp?.length) return a
-  const moved = a.transp.map(t => ({ id:t.id, tipo:['Trem','Ônibus','Transfer'].includes(t.tipo) ? t.tipo : 'Outro',
-    nome:[t.origem, t.destino].filter(Boolean).join(' → '), cidade:'', data:t.data || '', hora:t.hora || '',
-    passageiros:t.passageiros || '', valor:t.valor || '', reserva:t.reserva || '', link:t.link || '', status:TRANSP_MAP[t.status] || 'Definido' }))
-  return { ...a, exp:[...(a.exp || []), ...moved], transp:[] }
+  if (a.transp?.length) {
+    const moved = a.transp.map(t => ({ id:t.id, tipo:['Trem','Ônibus','Transfer'].includes(t.tipo) ? t.tipo : 'Outro',
+      nome:[t.origem, t.destino].filter(Boolean).join(' → '), cidade:'', data:t.data || '', hora:t.hora || '',
+      passageiros:t.passageiros || '', valor:t.valor || '', reserva:t.reserva || '', link:t.link || '', status:TRANSP_MAP[t.status] || 'Definido' }))
+    a = { ...a, exp:[...(a.exp || []), ...moved], transp:[] }
+  }
+  const TERRESTRE = ['Trem','Ônibus','Transfer']
+  if ((a.exp || []).some(x => TERRESTRE.includes(x.tipo))) {
+    const vira = x => {
+      const [de = '', para = ''] = String(x.nome || '').split(/\s*(?:→|->|>)\s*/)
+      return { id:x.id, tipo:x.tipo, de, para, data:x.data || '', hora:x.hora || '', empresa:'', classe:'', passageiros:x.passageiros || '',
+        valor:x.valor || '', reserva:x.reserva || '', link:x.link || '', anexos:x.anexos || [], status:EXP_TREM[x.status] || 'Pendente' }
+    }
+    a = { ...a, trem:[...(a.trem || []), ...a.exp.filter(x => TERRESTRE.includes(x.tipo)).map(vira)], exp:a.exp.filter(x => !TERRESTRE.includes(x.tipo)) }
+  }
+  const ch = a.checks?.previagem
+  if (ch && ('Call agendada' in ch || 'Call realizada' in ch || 'Ingressos e trens conferidos' in ch)) {
+    const { 'Call agendada':ag, 'Call realizada':re, 'Ingressos e trens conferidos':ing, ...resto } = ch
+    a = { ...a, checks:{ ...a.checks, previagem:{ ...resto, 'Reunião agendada':!!ag, 'Reunião realizada':!!re, 'Ingressos conferidos':!!ing } } }
+  }
+  return a
 }
+const EXP_TREM = { 'Definido':'Pendente', 'Cotado':'Cotado', 'Aprovado':'Aguardando cliente', 'Comprado':'Comprado', 'Voucher anexado':'Bilhete anexado' }
 
 const STATUS = {
   andamento:  { label:'Em andamento',       color:T.info },
@@ -160,9 +200,16 @@ const TEMPLATES = {
     ['Opções de seguro', '{primeiro_nome}, separei as opções de seguro viagem para {destino} ({periodo}):\n\n[opções]\n\nPara a Europa a cobertura mínima exigida é de € 30.000 — recomendo uma cobertura maior para viajar tranquilo.'],
     ['Envio da apólice', '{primeiro_nome}, seguro viagem contratado ✅ Segue a apólice. Salve no celular e anote o telefone de emergência da seguradora.'],
   ],
+  trem: [
+    ['Opções de trem', '{primeiro_nome}, separei as opções de trem para os deslocamentos entre as cidades:\n\n[opções]\n\nQuais horários preferem?'],
+    ['Confirmação de trens', '{primeiro_nome}, trens reservados ✅ Os bilhetes já estão organizados por data. Chegue à estação com 20 a 30 minutos de antecedência.'],
+  ],
+  aluguel: [
+    ['Opções de aluguel', '{primeiro_nome}, separei as opções de aluguel de veículo:\n\n[opções]\n\nLembre que na Europa muitas locadoras pedem a CNH + PID (Permissão Internacional para Dirigir) e cartão de crédito no nome do motorista.'],
+    ['Confirmação do aluguel', '{primeiro_nome}, aluguel reservado ✅ Na retirada leve CNH, PID, passaporte e o cartão de crédito usado na reserva. O voucher já está salvo para a viagem.'],
+  ],
   exp: [
     ['Sugestões de ingressos', '{primeiro_nome}, separei algumas experiências que combinam com o perfil de vocês em {destino}:\n\n[sugestões]\n\nQuais querem incluir?'],
-    ['Confirmação de trens', '{primeiro_nome}, trens reservados ✅ Os bilhetes já estão organizados por data. Chegue à estação com 20 a 30 minutos de antecedência.'],
     ['Confirmação de ingressos', '{primeiro_nome}, ingressos comprados ✅ Os vouchers já estão organizados para a viagem.'],
   ],
   internet: [
@@ -172,7 +219,7 @@ const TEMPLATES = {
     ['Envio do roteiro final', '{primeiro_nome}, segue o roteiro dia a dia da sua viagem para {destino} 🗓️\n\n{roteiro}\n\nMe diga se quer ajustar algo!'],
   ],
   previagem: [
-    ['Agendar call prévia', '{primeiro_nome}, faltam {dias} dias para a viagem! Vamos marcar nossa call de alinhamentos finais para revisar roteiro, documentos, seguro, internet e bagagem? Me diga o melhor horário.'],
+    ['Agendar reunião final', '{primeiro_nome}, faltam {dias} dias para a viagem! Vamos marcar nossa reunião final de alinhamentos para revisar roteiro, documentos, seguro, internet e bagagem? Me diga o melhor horário.'],
     ['Checklist de embarque', '{primeiro_nome}, checklist final antes de embarcar:\n\n✅ Passaportes válidos\n✅ Seguro viagem\n✅ Check-in feito\n✅ eSIM instalado\n✅ Vouchers e bilhetes salvos no celular\n✅ Cartão internacional liberado\n\nBoa viagem! Estou à disposição durante toda a viagem.'],
   ],
 }
@@ -235,7 +282,7 @@ function alertas(a) {
   if (dias !== null && dias >= 0 && dias <= 30 && pend.length)
     out.push(`Embarque em ${dias}d com pendências: ${pend.map(k => STEP[k].short).join(', ')}`)
   if (dias !== null && dias >= 0 && dias <= 7 && !progress(a, STEP.previagem).complete)
-    out.push('Call prévia ainda não realizada')
+    out.push('Reunião final ainda não realizada')
   const volta = a.fim || a.inicio
   if (volta) (a.passageiros || []).forEach(p => {
     if (p.passaporte && p.passaporte < addMonths(volta, 6))
@@ -260,6 +307,12 @@ const detalhe = (k, it) => ({
   seguro: () => ({ titulo:it.seguradora || 'Seguro viagem', sub:it.plano, campos:[
     { l:'Cobertura médica', v:it.cobertura }, { l:'Vigência', v:it.inicio ? `${fmtDA(it.inicio)}${it.fim ? ` a ${fmtDA(it.fim)}` : ''}` : '' },
     { l:'Viajantes', v:it.viajantes }, { l:'Nº da apólice', v:it.apolice }] }),
+  trem: () => ({ titulo:(it.de || it.para) ? `${it.de || '?'} → ${it.para || '?'}` : (it.tipo || 'Trem'), sub:[it.tipo, it.empresa, it.classe].filter(Boolean).join(' · '), campos:[
+    { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Nº da reserva', v:it.reserva }] }),
+  aluguel: () => ({ titulo:[it.tipo, it.categoria].filter(Boolean).join(' · ') || 'Aluguel de veículo', sub:it.locadora, campos:[
+    { l:'Retirada', v:[it.retirada_local, quando(it.retirada_data, it.retirada_hora)].filter(Boolean).join(' · ') },
+    { l:'Devolução', v:[it.devolucao_local, quando(it.devolucao_data, it.devolucao_hora)].filter(Boolean).join(' · ') },
+    { l:'Proteção', v:it.seguro }, { l:'Nº da reserva', v:it.reserva }] }),
   exp: () => ({ titulo:it.nome || it.tipo || 'Ingresso', sub:[it.tipo, it.cidade].filter(Boolean).join(' · '), campos:[
     { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] }),
   internet: () => ({ titulo:[it.tipo, it.operadora].filter(Boolean).join(' · ') || 'Internet', sub:it.regiao, campos:[
@@ -459,7 +512,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   const create = async form => {
     const base = {
-      ...form, status:'andamento', checks:{}, na:{}, aereo:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
+      ...form, status:'andamento', checks:{}, na:{}, aereo:[], trem:[], aluguel:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
       proxima_acao:'Agendar reunião de onboarding', proxima_data:'',
       log:[{ t:new Date().toISOString(), msg:'Assessoria criada' }],
     }
@@ -537,7 +590,7 @@ function Overview({ list, onOpen, onNew, mode }) {
     { label:'Roteiro prévio',      val:ativas.filter(a => etapaDe(a) === 'rota').length },
     { label:'Em emissão',          val:ativas.filter(a => EMISSAO.includes(etapaDe(a))).length },
     { label:'Roteiro final',       val:ativas.filter(a => etapaDe(a) === 'roteiro').length },
-    { label:'Call prévia',         val:ativas.filter(a => etapaDe(a) === 'previagem').length },
+    { label:'Reunião final',       val:ativas.filter(a => etapaDe(a) === 'previagem').length },
     { label:'Embarcam em 30 dias', val:ativas.filter(a => { const d = daysTo(a.inicio); return d !== null && d >= 0 && d <= 30 }).length },
     { label:'Com alerta',          val:ativas.filter(a => alertas(a).length).length, tone:'#F87171' },
   ]
@@ -940,10 +993,9 @@ function StepPanel({ s, a, onChange, mode }) {
             <div style={{ fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:9 }}>{(() => { const I = STEP_ICON[s.k]; return <I size={17} color={T.muted} strokeWidth={1.8}/> })()} {s.name}</div>
             {s.goal && <div style={{ fontSize:12, color:T.muted, marginTop:4 }}>Objetivo: {s.goal}</div>}
           </div>
-          <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:T.muted, cursor:'pointer' }}>
-            <input type="checkbox" checked={na} onChange={e => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: e.target.checked } }))}/>
-            Não se aplica a esta viagem
-          </label>
+          {na
+            ? <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: false } }))}><RotateCcw size={13}/> Reativar etapa</Btn>
+            : <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: true } }))} title="Some do progresso e do link do cliente"><Ban size={13}/> Não se aplica</Btn>}
         </div>
         {!na && <div style={{ marginTop:12 }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5 }}>
@@ -954,6 +1006,13 @@ function StepPanel({ s, a, onChange, mode }) {
         </div>}
       </Card>
 
+      {na && (
+        <Card style={{ textAlign:'center', padding:'28px 18px', borderStyle:'dashed' }}>
+          <Ban size={22} color={T.faint} strokeWidth={1.6}/>
+          <div style={{ fontSize:14, fontWeight:600, marginTop:8 }}>Esta etapa não se aplica a esta viagem</div>
+          <div style={{ fontSize:13, color:T.muted, marginTop:4 }}>Ela conta como concluída no progresso e não aparece para o cliente.</div>
+        </Card>
+      )}
       {!na && s.dayByDay && <DiaADia a={a} onChange={onChange}/>}
       {!na && (s.kind === 'check' ? <Checklist s={s} a={a} onChange={onChange}/> : <Items s={s} a={a} onChange={onChange} mode={mode}/>)}
 
@@ -970,7 +1029,7 @@ function StepPanel({ s, a, onChange, mode }) {
           style={{ ...inputS, resize:'vertical' }}/>
       </Card>
 
-      <Templates s={s} a={a}/>
+      {!na && <Templates s={s} a={a}/>}
     </div>
   )
 }
