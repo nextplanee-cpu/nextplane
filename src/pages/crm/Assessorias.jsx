@@ -56,7 +56,7 @@ const STEPS = [
       { k:'data_volta', l:'Data da volta', t:'date', volta:true }, { k:'voo_volta', l:'Nº do voo (volta)', ph:'TP 87', volta:true },
       { k:'horario_volta', l:'Horário (volta)', t:'time', volta:true },
       { k:'_fim_volta', sep:' ', volta:true },
-      { k:'valor', l:'Valor R$', t:'number' },
+      { k:'valor', l:'Valor', t:'money' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
   { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
@@ -64,7 +64,7 @@ const STEPS = [
     fields:[
       { k:'cidade', l:'Cidade' }, { k:'hotel', l:'Hotel', w:2 }, { k:'checkin', l:'Check-in', t:'date' }, { k:'checkout', l:'Check-out', t:'date' },
       { k:'quarto', l:'Tipo de quarto' }, { k:'cafe', l:'Café da manhã', t:'check' }, { k:'cancelamento', l:'Cancelamento', ph:'Grátis até…' },
-      { k:'valor', l:'Valor R$', t:'number' }, { k:'confirmacao', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+      { k:'valor', l:'Valor', t:'money' }, { k:'confirmacao', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'trem', icon:'🚆', name:'Trem', short:'Trem', color:'#14B8A6', kind:'items', unit:'trechos comprados', add:'trecho de trem',
     statuses:TREM_ST, done:['Comprado','Bilhete anexado'], blank:{ tipo:'Trem', de:'', para:'', data:'', hora:'', empresa:'', classe:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
@@ -73,7 +73,7 @@ const STEPS = [
       { k:'de', l:'Saída (cidade / estação)', ph:'Paris — Gare du Nord', w:2 }, { k:'para', l:'Chegada (cidade / estação)', ph:'Londres — St Pancras', w:2 },
       { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
       { k:'empresa', l:'Empresa', ph:'Eurostar, Trenitalia, Renfe…' }, { k:'classe', l:'Classe', ph:'Standard, 1ª classe…' },
-      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
+      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
   { k:'aluguel', icon:'🚗', name:'Aluguel de carro ou moto', short:'Aluguel de veículo', color:'#64748B', kind:'items', unit:'reservados', add:'aluguel',
     statuses:ALUGUEL_ST, done:['Reservado','Voucher anexado'], blank:{ tipo:'Carro', locadora:'', categoria:'', retirada_local:'', retirada_data:'', retirada_hora:'', devolucao_local:'', devolucao_data:'', devolucao_hora:'', seguro:'', valor:'', reserva:'', link:'', status:'Pendente' },
@@ -85,28 +85,28 @@ const STEPS = [
       { k:'_dev', sep:'Devolução' },
       { k:'devolucao_local', l:'Local de devolução', ph:'Porto — centro', w:2 }, { k:'devolucao_data', l:'Data', t:'date' }, { k:'devolucao_hora', l:'Horário', t:'time' },
       { k:'_fim', sep:' ' },
-      { k:'seguro', l:'Seguro / proteção', ph:'Cobertura total' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+      { k:'seguro', l:'Seguro / proteção', ph:'Cobertura total' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'seguro', icon:'🛡️', name:'Seguro viagem', short:'Seguro', color:'#10B981', kind:'items', unit:'contratados', add:'seguro',
     statuses:SEGURO_ST, done:['Contratado','Apólice enviada'], blank:{ seguradora:'', plano:'', cobertura:'', inicio:'', fim:'', viajantes:'', valor:'', apolice:'', link:'', status:'Pendente' },
     fields:[
       { k:'seguradora', l:'Seguradora', ph:'Assist Card, GTA…' }, { k:'plano', l:'Plano', ph:'Europa 60 mil €' }, { k:'cobertura', l:'Cobertura médica', ph:'€ 60.000' },
       { k:'inicio', l:'Início', t:'date' }, { k:'fim', l:'Fim', t:'date' }, { k:'viajantes', l:'Viajantes', t:'number' },
-      { k:'valor', l:'Valor R$', t:'number' }, { k:'apolice', l:'Nº apólice' }, { k:'link', l:'Apólice (link)', ph:'https://', w:2 },
+      { k:'valor', l:'Valor', t:'money' }, { k:'apolice', l:'Nº apólice' }, { k:'link', l:'Apólice (link)', ph:'https://', w:2 },
     ] },
   { k:'exp', icon:'🎟️', name:'Ingressos e passeios', short:'Ingressos', color:'#EC4899', kind:'items', unit:'comprados', add:'ingresso ou passeio',
     statuses:EXP_ST, done:['Comprado','Voucher anexado'], blank:{ tipo:'Ingresso', nome:'', cidade:'', data:'', hora:'', passageiros:'', valor:'', reserva:'', link:'', status:'Definido' },
     fields:[
       { k:'tipo', l:'Tipo', t:'select', opts:['Ingresso','Passeio','Tour','Museu','Parque','Evento','Show','Restaurante','Outro'] },
       { k:'nome', l:'Nome', ph:'Museu do Louvre', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
-      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+      { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'internet', icon:'📶', name:'Internet', short:'Internet', color:'#0EA5E9', kind:'items', unit:'comprados', add:'chip / eSIM',
     statuses:INTERNET_ST, done:['Comprado','Enviado ao cliente'], blank:{ tipo:'eSIM', operadora:'', regiao:'', dados:'', inicio:'', dias:'', valor:'', link:'', status:'Pendente' },
     fields:[
       { k:'tipo', l:'Tipo', t:'select', opts:['eSIM','Chip físico','Roaming da operadora','Pocket Wi-Fi'] },
       { k:'operadora', l:'Operadora', ph:'Airalo, Holafly…' }, { k:'regiao', l:'País / região', ph:'Europa' }, { k:'dados', l:'Dados', ph:'10 GB / ilimitado' },
-      { k:'inicio', l:'Ativação', t:'date' }, { k:'dias', l:'Dias', t:'number' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'link', l:'QR code / voucher (link)', ph:'https://', w:2 },
+      { k:'inicio', l:'Ativação', t:'date' }, { k:'dias', l:'Dias', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'link', l:'QR code / voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'roteiro', icon:'🗓️', name:'Definição de roteiro final (dia a dia)', short:'Roteiro final', color:'#A78BFA', kind:'check', dayByDay:true,
     goal:'Montar a programação completa de cada dia da viagem.', out:'Roteiro dia a dia aprovado e entregue ao cliente.',
@@ -117,9 +117,9 @@ const STEPS = [
 ]
 const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
 const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
-/* Financeiro: lucro que você tem vendendo cada etapa (interno — sem passagens aéreas)
+/* Financeiro: lucro que você tem vendendo cada etapa (interno)
    e economia que o cliente teve com a assessoria (aparece no link do cliente) */
-const LUCRO_ETAPAS    = ['hotel','trem','aluguel','seguro','exp','internet']
+const LUCRO_ETAPAS    = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
 const ECONOMIA_ETAPAS = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
 const OUTROS = { k:'outros', short:'Outros' }
 const somaDe = obj => Object.values(obj || {}).reduce((t, v) => t + (Number(v) || 0), 0)
@@ -170,7 +170,43 @@ const migrate = a => {
     const { 'Call agendada':ag, 'Call realizada':re, 'Ingressos e trens conferidos':ing, ...resto } = ch
     a = { ...a, checks:{ ...a.checks, previagem:{ ...resto, 'Reunião agendada':!!ag, 'Reunião realizada':!!re, 'Ingressos conferidos':!!ing } } }
   }
+  // valores digitados como "8.723" no campo numérico antigo viraram 8,723 — corrige para 8723
+  const conserta = v => (typeof v === 'number' && pontoDeMilhar(v) ? Math.round(v * 1000) : v)
+  const consertaObj = o => (o ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, conserta(v)])) : o)
+  a = { ...a, valor:conserta(a.valor), lucro:consertaObj(a.lucro), economia:consertaObj(a.economia) }
+  STEPS.filter(s => s.kind === 'items').forEach(s => {
+    if ((a[s.k] || []).some(it => conserta(it.valor) !== it.valor)) a = { ...a, [s.k]: a[s.k].map(it => ({ ...it, valor:conserta(it.valor) })) }
+  })
   return a
+}
+/* 8.723 (3 casas) nunca é dinheiro de verdade: foi ponto de milhar lido como decimal */
+const pontoDeMilhar = v => !Number.isInteger(v) && Math.abs(v * 1000 - Math.round(v * 1000)) < 1e-6 && Math.abs(v * 100 - Math.round(v * 100)) > 1e-6
+
+/* "8.723,85" / "8723,85" / "8.723" / "8723.85" / "R$ 1.200" → número */
+const lerReais = txt => {
+  let t = String(txt || '').replace(/[R$\s]/g, '')
+  if (!t) return ''
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '')
+  const n = Number(t)
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : ''
+}
+const fmtNum = v => (v === '' || v == null ? '' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits:2 }))
+function MoneyField({ label, value, onChange, ph = '0,00' }) {
+  const [txt, setTxt] = useState(null) // texto enquanto digita; fora do foco mostra o valor formatado
+  return (
+    <div>
+      {label && <Label>{label}</Label>}
+      <div style={{ position:'relative' }}>
+        <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', fontSize:13, color:T.faint, pointerEvents:'none' }}>R$</span>
+        <input type="text" inputMode="decimal" placeholder={ph} value={txt ?? fmtNum(value)}
+          onFocus={() => setTxt(fmtNum(value))}
+          onChange={e => { setTxt(e.target.value); onChange(lerReais(e.target.value)) }}
+          onBlur={() => setTxt(null)}
+          style={{ ...inputS, paddingLeft:32, ...num }}/>
+      </div>
+    </div>
+  )
 }
 const EXP_TREM = { 'Definido':'Pendente', 'Cotado':'Cotado', 'Aprovado':'Aguardando cliente', 'Comprado':'Comprado', 'Voucher anexado':'Bilhete anexado' }
 
@@ -236,7 +272,7 @@ const TEMPLATES = {
 const uid = () => Math.random().toString(36).slice(2, 9)
 const todayISO = () => new Date().toISOString().slice(0, 10)
 const fmtD = d => (d ? d.split('-').reverse().slice(0, 2).join('/') : '—')
-const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR')}`
+const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits:0, maximumFractionDigits:2 })}`
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const fmtMes = d => (d ? `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(2, 4)}` : '—')
 const periodo = a => (a.inicio ? `${fmtD(a.inicio)} a ${fmtD(a.fim)}` : 'datas a definir')
@@ -980,7 +1016,7 @@ function FinLinhas({ a, campo, etapas, setIn }) {
             <span style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:13 }}>
               <I size={15} color={T.faint} strokeWidth={1.8}/> {s.short}{a.na?.[s.k] && <span style={{ fontSize:11, color:T.faint }}>(n/a)</span>}
             </span>
-            <Field type="number" ph="R$ 0" value={a[campo]?.[s.k]} onChange={v => setIn(campo, s.k, v)}/>
+            <MoneyField value={a[campo]?.[s.k]} onChange={v => setIn(campo, s.k, v)}/>
           </div>
         )
       })}
@@ -1006,7 +1042,7 @@ function Financeiro({ a, onChange }) {
       <Card>
         <CardTitle icon={Wallet} right={<span style={{ fontSize:11, color:T.faint }}>interno · o cliente não vê</span>}>Lucro por etapa</CardTitle>
         <div style={{ fontSize:13, color:T.muted, margin:'-6px 0 10px' }}>
-          Quanto você ganhou vendendo cada etapa, além da assessoria (comissão, markup, repasse). Passagens aéreas ficam de fora.
+          Quanto você ganhou vendendo cada etapa, além da assessoria (comissão, markup, repasse).
         </div>
         <FinLinhas a={a} campo="lucro" etapas={LUCRO_ETAPAS} setIn={setIn}/>
         <FinTotal label="Lucro nas etapas" value={fmtR(lucroTotal(a))}/>
@@ -1273,6 +1309,7 @@ function Items({ s, a, onChange, mode }) {
                         <label style={{ ...inputS, display:'flex', gap:8, alignItems:'center', cursor:'pointer' }}>
                           <input type="checkbox" checked={!!it[f.k]} onChange={e => setItem(i, f.k, e.target.checked)}/> {it[f.k] ? 'Incluso' : 'Não incluso'}
                         </label></div>)
+                    : f.t === 'money' ? <MoneyField label={f.l} value={it[f.k]} onChange={v => setItem(i, f.k, v)}/>
                     : <Field label={f.l} type={f.t || 'text'} ph={f.ph} value={it[f.k]} onChange={v => setItem(i, f.k, v)} list={f.k === 'cidade' ? 'ass-cidades' : undefined}/>}
                 </div>
               ))}
