@@ -8,6 +8,9 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, X, Search, ArrowLeft, Trash2, MessageCircle, Copy, AlertTriangle,
   Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
+  Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall,
+  Circle, MinusCircle, Target, FolderOpen, History, NotebookPen, MessageSquareText, Briefcase,
+  LayoutList, User, Settings,
 } from 'lucide-react'
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
@@ -15,17 +18,16 @@ import {
 } from '../../lib/assessoriasApi'
 import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
 
-/* ─── Design tokens (mesmos do CRM) ─────────────────── */
-const T = {
-  bg: '#0B1220', card: '#111827', header: '#0d1628',
-  gold: '#D4AF37', text: '#FFFFFF', muted: 'rgba(255,255,255,0.5)',
-  success: '#22C55E', warn: '#F59E0B', err: '#EF4444', info: '#3B82F6',
-  border: '1px solid rgba(212,175,55,0.15)',
-  borderN: '1px solid rgba(255,255,255,0.07)',
-}
-const inputS = {
-  width:'100%', background:'rgba(255,255,255,0.05)', border:T.borderN, borderRadius:8,
-  padding:'8px 10px', color:T.text, fontSize:13, fontFamily:'inherit', outline:'none',
+/* ─── Design system compartilhado com o CRM (crm/ui.jsx) ─ */
+import {
+  T, num, inputS, Badge, Dot, Card, CardTitle, Btn, IconBtn, Label, Field, Select, Bar,
+  PageHeader, Kpi, KpiGrid, th, td, Empty, Modal,
+} from './ui'
+
+/* Ícone de linha de cada etapa (a interface do CRM não usa emoji; o link do cliente usa s.icon) */
+const STEP_ICON = {
+  onboarding:Handshake, rota:Compass, aereo:Plane, hotel:BedDouble, seguro:ShieldCheck,
+  exp:Ticket, internet:Wifi, roteiro:CalendarDays, previagem:PhoneCall,
 }
 
 /* ─── Etapas ─────────────────────────────────────────── */
@@ -197,7 +199,32 @@ function progress(a, s) {
   const done = items.filter(i => s.done.includes(i.status)).length
   return { done, total:items.length, pct:items.length ? done / items.length : 0, complete:items.length > 0 && done === items.length }
 }
-const semaforo = p => (p.na ? '➖' : p.complete ? '✅' : p.pct >= 0.5 ? '🟡' : p.pct > 0 ? '🔴' : '⚪')
+/* Situação da etapa: cor do segmento/ícone e texto (sem emoji) */
+const situacao = p => (p.na ? { c:'transparent', l:'não se aplica' } : p.complete ? { c:T.success, l:'concluída' }
+  : p.pct > 0 ? { c:T.gold, l:'em andamento' } : { c:'rgba(255,255,255,0.12)', l:'não iniciada' })
+const StatusIcon = ({ p, current }) => {
+  if (p.na) return <MinusCircle size={16} color={T.faint} strokeWidth={1.8}/>
+  if (p.complete) return <CheckCircle2 size={16} color={T.success} strokeWidth={2}/>
+  const c = current ? T.gold : p.pct > 0 ? T.gold : T.faint
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.5" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.6"/>
+      {p.pct > 0 && <circle cx="8" cy="8" r="6.5" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round"
+        strokeDasharray={`${p.pct * 40.8} 40.8`} transform="rotate(-90 8 8)"/>}
+      {current && <circle cx="8" cy="8" r="2.4" fill={T.gold}/>}
+    </svg>
+  )
+}
+/* Trilha de progresso das 9 etapas (lista de assessorias) */
+const StepTrack = ({ a }) => (
+  <div style={{ display:'flex', gap:3 }} title={STEPS.map(s => `${s.short}: ${situacao(progress(a, s)).l}`).join('\n')}>
+    {STEPS.map(s => {
+      const p = progress(a, s)
+      return <span key={s.k} style={{ width:14, height:6, borderRadius:2, background:situacao(p).c,
+        border:p.na ? `1px dashed ${T.lineStrong}` : 'none' }}/>
+    })}
+  </div>
+)
 const currentStep = a => STEPS.find(s => !progress(a, s).complete) || null
 
 function alertas(a) {
@@ -275,48 +302,6 @@ function fillTemplate(txt, a) {
   return txt.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
 }
 
-/* ─── UI básica ──────────────────────────────────────── */
-const Badge = ({ children, color, small }) => (
-  <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:small ? '2px 7px' : '3px 10px',
-    borderRadius:20, fontSize:small ? 10 : 11, fontWeight:600, whiteSpace:'nowrap',
-    background:`${color}20`, color, border:`1px solid ${color}40` }}>{children}</span>
-)
-const Card = ({ children, style, onClick }) => (
-  <div onClick={onClick} style={{ background:T.card, borderRadius:12, border:T.borderN, padding:18, ...style }}>{children}</div>
-)
-const Btn = ({ children, onClick, outline, danger, small, style, disabled, title }) => (
-  <button onClick={onClick} disabled={disabled} title={title}
-    style={{ background:danger ? 'rgba(239,68,68,0.1)' : outline ? 'transparent' : 'linear-gradient(135deg,#D4AF37,#f0d060)',
-      color:danger ? T.err : outline ? T.gold : '#0B1220', padding:small ? '5px 12px' : '9px 18px',
-      borderRadius:8, fontWeight:700, fontSize:small ? 12 : 13, cursor:disabled ? 'not-allowed' : 'pointer',
-      fontFamily:'inherit', border:danger ? '1px solid rgba(239,68,68,0.3)' : outline ? `1px solid ${T.gold}` : 'none',
-      opacity:disabled ? 0.5 : 1, display:'inline-flex', alignItems:'center', gap:6, whiteSpace:'nowrap', ...style }}>
-    {children}
-  </button>
-)
-const Label = ({ children }) => <label style={{ fontSize:11, color:T.muted, display:'block', marginBottom:4 }}>{children}</label>
-const Field = ({ label, value, onChange, type = 'text', ph, list }) => (
-  <div>
-    {label && <Label>{label}</Label>}
-    <input type={type} value={value ?? ''} placeholder={ph} list={list}
-      onChange={e => onChange(type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
-      style={{ ...inputS, colorScheme:'dark' }}/>
-  </div>
-)
-const Select = ({ label, value, onChange, opts }) => (
-  <div>
-    {label && <Label>{label}</Label>}
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inputS, background:'#111827', cursor:'pointer' }}>
-      {opts.map(o => Array.isArray(o) ? <option key={o[0]} value={o[0]}>{o[1]}</option> : <option key={o}>{o}</option>)}
-    </select>
-  </div>
-)
-const Bar = ({ pct, color }) => (
-  <div style={{ height:4, background:'rgba(255,255,255,0.06)', borderRadius:4, overflow:'hidden' }}>
-    <div style={{ height:'100%', width:`${Math.round(pct * 100)}%`, background:color, transition:'width .3s' }}/>
-  </div>
-)
-
 /* ─── Seletor de cidades (busca + lista; destino aceita várias) ── */
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const cidadesDe = a => (a.cidades?.length ? a.cidades : a.destino ? [a.destino] : [])
@@ -359,11 +344,11 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
       {label && <Label>{label}</Label>}
       <div onClick={() => setOpen(true)} style={{ ...inputS, display:'flex', flexWrap:'wrap', gap:5, alignItems:'center', minHeight:38, padding:'5px 8px', cursor:'text' }}>
         {sel.map(n => (
-          <span key={n} style={{ display:'inline-flex', alignItems:'center', gap:4, background:'rgba(212,175,55,0.15)',
-            color:T.gold, border:'1px solid rgba(212,175,55,0.3)', borderRadius:20, padding:'2px 4px 2px 9px', fontSize:12, fontWeight:600 }}>
+          <span key={n} style={{ display:'inline-flex', alignItems:'center', gap:4, background:'rgba(255,255,255,0.06)',
+            color:T.text, border:`1px solid ${T.lineStrong}`, borderRadius:5, padding:'1px 3px 1px 8px', fontSize:12, fontWeight:500 }}>
             {n}
             <button onClick={e => { e.stopPropagation(); tirar(n) }} title="Remover"
-              style={{ background:'transparent', border:'none', color:T.gold, cursor:'pointer', padding:0, display:'flex' }}><X size={12}/></button>
+              style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', padding:0, display:'flex' }}><X size={12}/></button>
           </span>
         ))}
         {(multi || !sel.length) && (
@@ -379,7 +364,7 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
       </div>
       {open && (
         <div className="ass-scroll" style={{ position:'absolute', zIndex:50, left:0, right:0, top:'100%', marginTop:4, maxHeight:260, overflowY:'auto',
-          background:'#0d1628', border:T.border, borderRadius:10, boxShadow:'0 12px 30px rgba(0,0,0,0.5)', padding:6 }}>
+          background:T.raised, border:`1px solid ${T.lineStrong}`, borderRadius:8, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', padding:6 }}>
           {q.trim() && !lista.some(g => g.cidades.some(c => semAcento(c.nome) === busca || c.nome.toUpperCase().endsWith(`(${q.trim().toUpperCase()})`))) && (
             <div onMouseDown={e => { e.preventDefault(); escolher(q) }}
               style={{ padding:'7px 10px', borderRadius:6, cursor:'pointer', fontSize:13, color:T.gold }}>
@@ -391,7 +376,7 @@ function CityPicker({ label, value, onChange, groups, multi, ph }) {
               <div style={{ fontSize:10, fontWeight:700, color:T.muted, letterSpacing:0.5, padding:'8px 10px 4px' }}>{g.grupo.toUpperCase()}</div>
               {g.cidades.map(c => (
                 <div key={c.nome} onMouseDown={e => { e.preventDefault(); escolher(c.nome) }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.1)'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   style={{ padding:'6px 10px', borderRadius:6, cursor:'pointer', fontSize:13, display:'flex', justifyContent:'space-between', gap:8 }}>
                   <span>{c.nome}</span><span style={{ color:T.muted, fontSize:11 }}>{c.pais}</span>
@@ -455,7 +440,7 @@ export default function Assessorias({ mode = 'local' }) {
       const log = [...(next.log || [])]
       STEPS.forEach(s => {
         if (!progress(a, s).complete && progress(next, s).complete && !next.na?.[s.k])
-          log.unshift({ t: new Date().toISOString(), msg:`${s.icon} ${s.short} concluída` })
+          log.unshift({ t: new Date().toISOString(), msg:`${s.short} concluída` })
       })
       if (a.status !== next.status) log.unshift({ t: new Date().toISOString(), msg:`Status: ${STATUS[next.status]?.label}` })
       return { ...next, log: log.slice(0, 80), portal_view: next.portal?.ativo ? portalView(next) : undefined }
@@ -505,13 +490,6 @@ export default function Assessorias({ mode = 'local' }) {
 
   return (
     <div>
-      <style>{`
-        .ass-scroll { scrollbar-width:auto; scrollbar-color:rgba(212,175,55,0.6) rgba(255,255,255,0.05); }
-        .ass-scroll::-webkit-scrollbar { width:14px; }
-        .ass-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,0.04); border-radius:8px; }
-        .ass-scroll::-webkit-scrollbar-thumb { background:rgba(212,175,55,0.55); border-radius:8px; border:3px solid transparent; background-clip:padding-box; min-height:48px; }
-        .ass-scroll::-webkit-scrollbar-thumb:hover { background:rgba(212,175,55,0.9); border:3px solid transparent; background-clip:padding-box; }
-      `}</style>
       {err === 'table_missing' ? <TableMissing/> : err && (
         <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', color:T.err,
           borderRadius:10, padding:'10px 14px', fontSize:13, marginBottom:14 }}>{err}</div>
@@ -528,7 +506,7 @@ export default function Assessorias({ mode = 'local' }) {
 /* ─── Aviso: tabela ainda não criada no Supabase ─────── */
 const TableMissing = () => (
   <Card style={{ border:T.border, marginBottom:14 }}>
-    <div style={{ fontWeight:700, color:T.gold, marginBottom:6 }}>⚙️ Falta criar a tabela de assessorias na nuvem</div>
+    <CardTitle icon={Settings}>Falta criar a tabela de assessorias na nuvem</CardTitle>
     <div style={{ fontSize:13, color:T.muted, lineHeight:1.6 }}>
       No Supabase: <b>SQL Editor → New query</b>, cole o trecho abaixo e clique em <b>Run</b>. Depois recarregue esta página.
     </div>
@@ -554,14 +532,14 @@ function Overview({ list, onOpen, onNew, mode }) {
   const ativas = list.filter(ATIVA)
   const etapaDe = a => currentStep(a)?.k
   const kpis = [
-    { label:'Assessorias ativas', val:ativas.length, color:T.gold },
-    { label:'Onboardings',        val:ativas.filter(a => etapaDe(a) === 'onboarding').length, color:STEP.onboarding.color },
-    { label:'Roteiro prévio',     val:ativas.filter(a => etapaDe(a) === 'rota').length, color:STEP.rota.color },
-    { label:'Em emissão',         val:ativas.filter(a => EMISSAO.includes(etapaDe(a))).length, color:STEP.aereo.color },
-    { label:'Roteiro final',      val:ativas.filter(a => etapaDe(a) === 'roteiro').length, color:STEP.roteiro.color },
-    { label:'Call prévia',        val:ativas.filter(a => etapaDe(a) === 'previagem').length, color:STEP.previagem.color },
-    { label:'Embarcam em 30 dias',val:ativas.filter(a => { const d = daysTo(a.inicio); return d !== null && d >= 0 && d <= 30 }).length, color:T.info },
-    { label:'Com alerta',         val:ativas.filter(a => alertas(a).length).length, color:T.err },
+    { label:'Ativas',              val:ativas.length },
+    { label:'Onboarding',          val:ativas.filter(a => etapaDe(a) === 'onboarding').length },
+    { label:'Roteiro prévio',      val:ativas.filter(a => etapaDe(a) === 'rota').length },
+    { label:'Em emissão',          val:ativas.filter(a => EMISSAO.includes(etapaDe(a))).length },
+    { label:'Roteiro final',       val:ativas.filter(a => etapaDe(a) === 'roteiro').length },
+    { label:'Call prévia',         val:ativas.filter(a => etapaDe(a) === 'previagem').length },
+    { label:'Embarcam em 30 dias', val:ativas.filter(a => { const d = daysTo(a.inicio); return d !== null && d >= 0 && d <= 30 }).length },
+    { label:'Com alerta',          val:ativas.filter(a => alertas(a).length).length, tone:'#F87171' },
   ]
   const resps = [...new Set(list.map(a => a.responsavel).filter(Boolean))]
 
@@ -573,95 +551,76 @@ function Overview({ list, onOpen, onNew, mode }) {
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12, marginBottom:18 }}>
-        <div>
-          <h2 style={{ fontSize:22, fontWeight:700, margin:0 }}>Gestão de Assessorias</h2>
-          <p style={{ color:T.muted, fontSize:13, margin:'4px 0 0' }}>
-            Execução das viagens contratadas · {mode === 'cloud' ? 'dados na nuvem' : 'dados só neste navegador'}
-          </p>
-        </div>
+      <PageHeader title="Assessorias" sub={`Execução das viagens contratadas · ${mode === 'cloud' ? 'dados na nuvem' : 'dados só neste navegador'}`}>
         <Btn onClick={onNew}><Plus size={14}/> Nova assessoria</Btn>
-      </div>
+      </PageHeader>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10, marginBottom:16 }}>
-        {kpis.map(k => (
-          <Card key={k.label} style={{ padding:14, borderTop:`3px solid ${k.color}` }}>
-            <div style={{ fontSize:24, fontWeight:700, color:k.color, lineHeight:1 }}>{k.val}</div>
-            <div style={{ fontSize:11, color:T.muted, marginTop:6 }}>{k.label}</div>
-          </Card>
-        ))}
-      </div>
+      <KpiGrid min={130} style={{ marginBottom:12 }}>
+        {kpis.map(k => <Kpi key={k.label} label={k.label} value={k.val} tone={k.tone}/>)}
+      </KpiGrid>
 
       <Card style={{ padding:0, overflow:'hidden' }}>
-        <div style={{ display:'flex', gap:10, padding:14, flexWrap:'wrap', borderBottom:T.borderN }}>
+        <div style={{ display:'flex', gap:8, padding:12, flexWrap:'wrap', borderBottom:T.borderN }}>
           <div style={{ position:'relative', flex:'1 1 220px' }}>
-            <Search size={14} style={{ position:'absolute', left:10, top:10, color:T.muted }}/>
+            <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:T.faint }}/>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente, origem ou destino…"
               style={{ ...inputS, paddingLeft:30 }}/>
           </div>
-          <select value={fSt} onChange={e => setFSt(e.target.value)} style={{ ...inputS, width:'auto', background:'#111827' }}>
+          <select value={fSt} onChange={e => setFSt(e.target.value)} style={{ ...inputS, width:'auto', background:T.card, cursor:'pointer' }}>
             <option value="ativas">Ativas</option>
             <option value="all">Todas</option>
             {Object.entries(STATUS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
           </select>
-          <select value={fResp} onChange={e => setFResp(e.target.value)} style={{ ...inputS, width:'auto', background:'#111827' }}>
+          <select value={fResp} onChange={e => setFResp(e.target.value)} style={{ ...inputS, width:'auto', background:T.card, cursor:'pointer' }}>
             <option value="all">Todos os responsáveis</option>
             {resps.map(r => <option key={r}>{r}</option>)}
           </select>
         </div>
 
         {rows.length === 0 ? (
-          <div style={{ padding:'48px 20px', textAlign:'center', color:T.muted }}>
-            <div style={{ fontSize:34, marginBottom:8 }}>🧳</div>
-            <div style={{ fontSize:14, marginBottom:14 }}>
-              {list.length ? 'Nenhuma assessoria com esses filtros.' : 'Nenhuma assessoria ainda. Crie a primeira quando fechar uma venda.'}
-            </div>
-            {!list.length && <Btn onClick={onNew} small><Plus size={13}/> Nova assessoria</Btn>}
-          </div>
+          <Empty icon={Briefcase} title={list.length ? 'Nenhuma assessoria com esses filtros' : 'Nenhuma assessoria ainda'}>
+            {list.length ? 'Ajuste a busca ou os filtros.' : 'Crie a primeira quando fechar uma venda.'}
+            {!list.length && <div style={{ marginTop:14 }}><Btn onClick={onNew} small><Plus size={13}/> Nova assessoria</Btn></div>}
+          </Empty>
         ) : (
           <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, minWidth:820 }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:880 }}>
               <thead>
-                <tr style={{ color:T.muted, fontSize:11, textAlign:'left' }}>
-                  {['Cliente','Destino','Período','Etapa atual','Progresso','Responsável','Status',''].map(h => (
-                    <th key={h} style={{ padding:'10px 14px', fontWeight:600, borderBottom:T.borderN }}>{h}</th>
-                  ))}
-                </tr>
+                <tr>{['Cliente','Destino','Embarque','Etapa atual','Progresso','Responsável','Status',''].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {rows.map(a => {
                   const st = currentStep(a)
                   const al = alertas(a)
                   const dias = daysTo(a.inicio)
+                  const feitas = STEPS.filter(s => progress(a, s).complete).length
                   return (
-                    <tr key={a.id} onClick={() => onOpen(a.id)} style={{ cursor:'pointer', borderBottom:T.borderN }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ padding:'12px 14px' }}>
-                        <div style={{ fontWeight:700 }}>{a.cliente}</div>
-                        <div style={{ fontSize:11, color:T.muted }}>{a.viajantes || '?'} viajante(s)</div>
+                    <tr key={a.id} onClick={() => onOpen(a.id)} className="crm-row" style={{ cursor:'pointer' }}>
+                      <td style={td}>
+                        <div style={{ fontWeight:600, whiteSpace:'nowrap' }}>{a.cliente}</div>
+                        <div style={{ fontSize:12, color:T.muted }}>{a.viajantes || '?'} viajante(s)</div>
                       </td>
-                      <td style={{ padding:'12px 14px' }}>
-                        <div>{a.destino || '—'}</div>
-                        {a.origem && <div style={{ fontSize:11, color:T.muted }}>saindo de {a.origem}</div>}
+                      <td style={td}>
+                        <div style={{ maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.destino || '—'}</div>
+                        {a.origem && <div style={{ fontSize:12, color:T.muted }}>saindo de {a.origem}</div>}
                       </td>
-                      <td style={{ padding:'12px 14px' }}>
+                      <td style={{ ...td, ...num }}>
                         <div>{fmtMes(a.inicio)}</div>
-                        {dias !== null && dias >= 0 && ATIVA(a) && <div style={{ fontSize:11, color:dias <= 30 ? T.warn : T.muted }}>em {dias} dias</div>}
+                        {dias !== null && dias >= 0 && ATIVA(a) && <div style={{ fontSize:12, color:dias <= 30 ? '#FBBF24' : T.muted }}>em {dias} dias</div>}
                       </td>
-                      <td style={{ padding:'12px 14px' }}>
-                        {st ? <Badge color={st.color}>{st.icon} {st.short}</Badge> : <Badge color={T.success}>🏁 Tudo concluído</Badge>}
+                      <td style={td}>
+                        {st ? <span style={{ display:'inline-flex', alignItems:'center', gap:7 }}>
+                          {(() => { const I = STEP_ICON[st.k]; return <I size={14} color={T.muted} strokeWidth={1.8}/> })()}{st.short}
+                        </span> : <Badge color={T.success}>Tudo concluído</Badge>}
                       </td>
-                      <td style={{ padding:'12px 14px', fontSize:15, letterSpacing:1, whiteSpace:'nowrap' }}
-                        title={STEPS.map(s => `${s.short}: ${semaforo(progress(a, s))}`).join('\n')}>
-                        {STEPS.map(s => <span key={s.k}>{semaforo(progress(a, s))}</span>)}
+                      <td style={td}>
+                        <StepTrack a={a}/>
+                        <div style={{ fontSize:11, color:T.faint, marginTop:5, ...num }}>{feitas} de {STEPS.length} etapas</div>
                       </td>
-                      <td style={{ padding:'12px 14px' }}>{a.responsavel || '—'}</td>
-                      <td style={{ padding:'12px 14px' }}>
-                        <Badge color={STATUS[a.status]?.color || T.muted} small>{STATUS[a.status]?.label || a.status}</Badge>
-                      </td>
-                      <td style={{ padding:'12px 14px' }}>
-                        {al.length > 0 && <span title={al.join('\n')} style={{ color:T.err, display:'inline-flex', alignItems:'center', gap:4, fontSize:12, fontWeight:700 }}>
+                      <td style={td}>{a.responsavel || '—'}</td>
+                      <td style={td}><Badge color={STATUS[a.status]?.color || T.muted} small>{STATUS[a.status]?.label || a.status}</Badge></td>
+                      <td style={{ ...td, width:48 }}>
+                        {al.length > 0 && <span title={al.join('\n')} style={{ color:'#F87171', display:'inline-flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600 }}>
                           <AlertTriangle size={14}/> {al.length}
                         </span>}
                       </td>
@@ -686,57 +645,62 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
   const al = alertas(a)
   const dias = daysTo(a.inicio)
   const st = currentStep(a)
+  const feitas = STEPS.filter(s => progress(a, s).complete).length
 
   return (
     <div>
       {/* Cabeçalho */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12, marginBottom:14 }}>
-        <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
-          <button onClick={onBack} title="Voltar" style={{ background:'rgba(255,255,255,0.05)', border:T.borderN, borderRadius:8,
-            color:T.text, cursor:'pointer', padding:8, display:'flex' }}><ArrowLeft size={16}/></button>
-          <div>
-            <h2 style={{ fontSize:21, fontWeight:700, margin:0 }}>{a.cliente} <span style={{ color:T.gold }}>— {a.origem ? `${a.origem} → ` : ''}{a.destino || 'destino a definir'}</span></h2>
-            <div style={{ display:'flex', gap:14, flexWrap:'wrap', fontSize:12, color:T.muted, marginTop:6 }}>
-              <span style={{ display:'inline-flex', gap:5, alignItems:'center' }}><Calendar size={12}/> {periodo(a)}</span>
-              <span style={{ display:'inline-flex', gap:5, alignItems:'center' }}><Users size={12}/> {a.viajantes || '?'} viajante(s)</span>
-              <span>👤 {a.responsavel || '—'}</span>
-              {a.contratado_em && <span>Contratado em {fmtD(a.contratado_em)}/{a.contratado_em.slice(0, 4)}</span>}
-              {dias !== null && dias >= 0 && <span style={{ color:dias <= 30 ? T.warn : T.gold, fontWeight:700 }}>✈️ Embarque em {dias} dias</span>}
-            </div>
+      <button onClick={onBack} className="crm-ghost"
+        style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', padding:'4px 6px', margin:'-4px 0 10px -6px',
+          display:'inline-flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit', borderRadius:6 }}>
+        <ArrowLeft size={14}/> Assessorias
+      </button>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12, marginBottom:16 }}>
+        <div style={{ minWidth:0 }}>
+          <h1 style={{ fontSize:20, fontWeight:700, margin:0, letterSpacing:'-0.2px' }}>{a.cliente}</h1>
+          <div style={{ fontSize:14, color:T.muted, marginTop:3 }}>{a.origem ? `${a.origem} → ` : ''}{a.destino || 'destino a definir'}</div>
+          <div style={{ display:'flex', gap:16, flexWrap:'wrap', fontSize:12, color:T.muted, marginTop:10 }}>
+            <span style={{ display:'inline-flex', gap:6, alignItems:'center' }}><Calendar size={13} color={T.faint}/> {periodo(a)}</span>
+            <span style={{ display:'inline-flex', gap:6, alignItems:'center' }}><Users size={13} color={T.faint}/> {a.viajantes || '?'} viajante(s)</span>
+            <span style={{ display:'inline-flex', gap:6, alignItems:'center' }}><User size={13} color={T.faint}/> {a.responsavel || '—'}</span>
+            {a.contratado_em && <span>Contratado em {fmtD(a.contratado_em)}/{a.contratado_em.slice(0, 4)}</span>}
+            {dias !== null && dias >= 0 && <span style={{ display:'inline-flex', gap:6, alignItems:'center', color:dias <= 30 ? '#FBBF24' : T.text, fontWeight:600 }}>
+              <Plane size={13}/> Embarque em {dias} dias</span>}
           </div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-          <span style={{ fontSize:11, color:T.muted }}>{saving ? 'Salvando…' : 'Salvo automaticamente'}</span>
-          <select value={a.status} onChange={e => set('status', e.target.value)}
-            style={{ ...inputS, width:'auto', background:'#111827', color:STATUS[a.status]?.color, fontWeight:700 }}>
+          <span style={{ fontSize:12, color:T.faint }}>{saving ? 'Salvando…' : 'Salvo'}</span>
+          <select value={a.status} onChange={e => set('status', e.target.value)} aria-label="Status da assessoria"
+            style={{ ...inputS, width:'auto', background:T.card, fontWeight:600, cursor:'pointer' }}>
             {Object.entries(STATUS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
           </select>
           {a.phone && <a href={waText(a.phone, `Olá, ${String(a.cliente).split(' ')[0]}! `)} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
-            <Btn outline small><MessageCircle size={13}/> WhatsApp</Btn></a>}
-          <Btn danger small onClick={onDelete} title="Excluir assessoria"><Trash2 size={13}/></Btn>
+            <Btn outline><MessageCircle size={14}/> WhatsApp</Btn></a>}
+          <IconBtn icon={Trash2} onClick={onDelete} title="Excluir assessoria" danger/>
         </div>
       </div>
 
       {al.length > 0 && (
-        <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:10, padding:'10px 14px', marginBottom:14 }}>
-          {al.map(t => <div key={t} style={{ color:'#FCA5A5', fontSize:12, display:'flex', gap:6, alignItems:'center', padding:'2px 0' }}><AlertTriangle size={13}/> {t}</div>)}
+        <div style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.22)', borderRadius:8, padding:'10px 14px', marginBottom:14 }}>
+          {al.map(t => <div key={t} style={{ color:'#FCA5A5', fontSize:13, display:'flex', gap:8, alignItems:'center', padding:'2px 0' }}><AlertTriangle size={14}/> {t}</div>)}
         </div>
       )}
 
-      <div style={{ display:'grid', gridTemplateColumns:'minmax(230px,280px) 1fr', gap:14, alignItems:'start' }} className="ass-grid">
+      <div style={{ display:'grid', gridTemplateColumns:'minmax(240px,280px) 1fr', gap:14, alignItems:'start' }} className="ass-grid">
         {/* Checklist operacional */}
-        <Card style={{ padding:10 }}>
-          <div style={{ fontSize:11, color:T.muted, padding:'4px 8px 8px', fontWeight:700, letterSpacing:0.5 }}>CHECKLIST OPERACIONAL</div>
-          <StepBtn active={tab === 'geral'} onClick={() => setTab('geral')} icon="📋" name="Visão geral"/>
-          <StepBtn active={tab === 'pax'} onClick={() => setTab('pax')} icon="🛂" name="Passageiros"
-            sub={`${(a.passageiros || []).length} de ${a.viajantes || '?'}`}/>
+        <Card style={{ padding:8 }}>
+          <StepBtn active={tab === 'geral'} onClick={() => setTab('geral')} icon={<LayoutList size={16} color={T.muted} strokeWidth={1.8}/>} name="Visão geral"/>
+          <StepBtn active={tab === 'pax'} onClick={() => setTab('pax')} icon={<Users size={16} color={T.muted} strokeWidth={1.8}/>} name="Passageiros"
+            sub={`${(a.passageiros || []).length}/${a.viajantes || '?'}`}/>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 10px 6px', fontSize:11, fontWeight:600, color:T.faint, letterSpacing:'0.4px', textTransform:'uppercase' }}>
+            <span>Etapas</span><span style={{ ...num, textTransform:'none', letterSpacing:0 }}>{feitas} de {STEPS.length}</span>
+          </div>
           {STEPS.map((s, i) => {
             const p = progress(a, s)
             return (
               <StepBtn key={s.k} active={tab === s.k} onClick={() => setTab(s.k)} current={st?.k === s.k}
-                icon={semaforo(p)} name={`${i + 1}. ${s.short}`}
-                sub={p.na ? 'não se aplica' : s.kind === 'items' ? (p.total ? `${p.done}/${p.total} ${s.unit}` : 'nenhum item') : `${p.done}/${p.total}`}
-                pct={p.na ? null : p.pct} color={s.color}/>
+                icon={<StatusIcon p={p} current={st?.k === s.k}/>} name={`${i + 1}. ${s.short}`} muted={p.na}
+                sub={p.na ? 'n/a' : s.kind === 'items' ? (p.total ? `${p.done}/${p.total}` : '—') : `${p.done}/${p.total}`}/>
             )
           })}
         </Card>
@@ -746,8 +710,8 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
           {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange} mode={mode}/>
             : tab === 'pax' ? (
               <Card>
-                <div style={{ fontSize:17, fontWeight:700, marginBottom:4 }}>🛂 Passageiros</div>
-                <div style={{ fontSize:12, color:T.muted, marginBottom:14 }}>Dados de cada viajante para emissões, seguro e reservas.</div>
+                <CardTitle icon={Users}>Passageiros</CardTitle>
+                <div style={{ fontSize:13, color:T.muted, margin:'-6px 0 14px' }}>Dados de cada viajante para emissões, seguro e reservas.</div>
                 <Passageiros list={a.passageiros || []} setList={fn => onChange(x => ({ ...x, passageiros: fn(x.passageiros || []) }))}/>
               </Card>)
             : <StepPanel s={STEP[tab]} a={a} onChange={onChange} mode={mode}/>}
@@ -759,18 +723,17 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
   )
 }
 
-const StepBtn = ({ active, onClick, icon, name, sub, pct, color, current }) => (
-  <div onClick={onClick} style={{ padding:'9px 10px', borderRadius:8, cursor:'pointer', marginBottom:2,
-    background:active ? 'rgba(212,175,55,0.12)' : 'transparent',
-    border:active ? '1px solid rgba(212,175,55,0.25)' : '1px solid transparent' }}>
-    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-      <span style={{ width:20, textAlign:'center' }}>{icon}</span>
-      <span style={{ flex:1, fontSize:13, fontWeight:active ? 700 : 500, color:active ? T.gold : T.text }}>{name}</span>
-      {current && <span style={{ fontSize:9, color:T.gold, fontWeight:700 }}>ATUAL</span>}
-      {sub && <span style={{ fontSize:11, color:T.muted }}>{sub}</span>}
-    </div>
-    {pct !== null && pct !== undefined && <div style={{ margin:'6px 0 0 28px' }}><Bar pct={pct} color={color}/></div>}
-  </div>
+const StepBtn = ({ active, onClick, icon, name, sub, current, muted }) => (
+  <button type="button" onClick={onClick} aria-current={active ? 'step' : undefined}
+    className={active ? undefined : 'crm-ghost'}
+    style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:6, cursor:'pointer', marginBottom:1,
+      background:active ? 'rgba(255,255,255,0.06)' : 'transparent', border:'none', fontFamily:'inherit', textAlign:'left',
+      boxShadow:active ? `inset 2px 0 0 ${T.gold}` : 'none' }}>
+    <span style={{ width:18, display:'flex', justifyContent:'center', flexShrink:0 }}>{icon}</span>
+    <span style={{ flex:1, fontSize:13, fontWeight:active ? 600 : 500, color:muted ? T.faint : T.text }}>{name}</span>
+    {current && <span style={{ fontSize:10, fontWeight:600, color:T.gold, border:'1px solid rgba(212,175,55,0.35)', borderRadius:4, padding:'0 5px', lineHeight:'16px' }}>atual</span>}
+    {sub && <span style={{ fontSize:12, color:T.faint, ...num }}>{sub}</span>}
+  </button>
 )
 
 /* ─── Passageiros: dados para emissão ────────────────── */
@@ -806,9 +769,9 @@ function Passageiros({ list = [], setList, compact }) {
         Cadastre os passageiros com os dados para emissão. O CRM avisa se algum passaporte vencer em menos de 6 meses após a volta.
       </div>}
       {list.map((p, i) => (
-        <div key={p.id} style={{ background:'rgba(255,255,255,0.03)', border:T.borderN, borderRadius:10, padding:12 }}>
+        <div key={p.id} style={{ background:'rgba(255,255,255,0.02)', border:T.borderN, borderRadius:8, padding:12 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, gap:8 }}>
-            <div style={{ fontWeight:700, fontSize:13 }}>👤 Passageiro {i + 1}{p.nome ? ` — ${p.nome}` : ''}</div>
+            <div style={{ fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:8 }}><User size={14} color={T.faint}/> Passageiro {i + 1}{p.nome ? ` — ${p.nome}` : ''}</div>
             <div style={{ display:'flex', gap:6 }}>
               {!compact && <Btn small outline onClick={() => copiar(paxTexto(p), p.id)}><Copy size={12}/> {copied === p.id ? 'Copiado!' : 'Copiar dados'}</Btn>}
               <button onClick={() => { if (!p.nome || window.confirm(`Remover ${p.nome}?`)) setList(prev => prev.filter((_, j) => j !== i)) }}
@@ -842,7 +805,7 @@ function Geral({ a, set, onChange, mode }) {
   return (
     <div style={{ display:'grid', gap:14 }}>
       <Card>
-        <div style={{ fontWeight:700, marginBottom:12 }}>🎯 Próxima ação</div>
+        <CardTitle icon={Target}>Próxima ação</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 170px', gap:10 }}>
           <Field value={a.proxima_acao} onChange={v => set('proxima_acao', v)} ph="Ex.: enviar opções de voo"/>
           <Field type="date" value={a.proxima_data} onChange={v => set('proxima_data', v)}/>
@@ -851,18 +814,14 @@ function Geral({ a, set, onChange, mode }) {
 
       <PortalCard a={a} onChange={onChange} mode={mode}/>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
-        {[['Valor da assessoria', fmtR(a.valor), T.gold], ['Custos lançados', fmtR(custos), T.muted],
-          ['Passageiros', `${(a.passageiros || []).length} de ${a.viajantes || '?'}`, T.info]].map(([l, v, c]) => (
-          <Card key={l} style={{ padding:14 }}>
-            <div style={{ fontSize:18, fontWeight:700, color:c }}>{v}</div>
-            <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>{l}</div>
-          </Card>
-        ))}
-      </div>
+      <KpiGrid min={150}>
+        <Kpi label="Valor da assessoria" value={fmtR(a.valor)}/>
+        <Kpi label="Custos lançados" value={fmtR(custos)}/>
+        <Kpi label="Passageiros" value={`${(a.passageiros || []).length} de ${a.viajantes || '?'}`}/>
+      </KpiGrid>
 
       <Card>
-        <div style={{ fontWeight:700, marginBottom:12 }}>📁 Dados da assessoria</div>
+        <CardTitle icon={FolderOpen}>Dados da assessoria</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:10 }}>
           <Field label="Cliente" value={a.cliente} onChange={v => set('cliente', v)}/>
           <Field label="WhatsApp" value={a.phone} onChange={v => set('phone', v)} ph="11999999999"/>
@@ -882,10 +841,10 @@ function Geral({ a, set, onChange, mode }) {
 
 
       <Card>
-        <div style={{ fontWeight:700, marginBottom:10 }}>🕓 Histórico</div>
+        <CardTitle icon={History}>Histórico</CardTitle>
         {(a.log || []).slice(0, 15).map((l, i) => (
-          <div key={i} style={{ display:'flex', gap:10, fontSize:12, padding:'5px 0', borderBottom:T.borderN }}>
-            <span style={{ color:T.muted, whiteSpace:'nowrap' }}>{new Date(l.t).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
+          <div key={i} style={{ display:'flex', gap:12, fontSize:13, padding:'7px 0', borderTop:i ? T.borderN : 'none' }}>
+            <span style={{ color:T.faint, whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{new Date(l.t).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
             <span>{l.msg}</span>
           </div>
         ))}
@@ -928,7 +887,7 @@ function PortalCard({ a, onChange, mode }) {
   return (
     <Card style={{ border:T.border }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:8 }}>
-        <div style={{ fontWeight:700, display:'flex', alignItems:'center', gap:8 }}><Link2 size={15} color={T.gold}/> Link de acompanhamento do cliente</div>
+        <div style={{ fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:8 }}><Link2 size={15} color={T.muted} strokeWidth={1.8}/> Link de acompanhamento do cliente</div>
         {ativo ? <Badge color={T.success} small>Ativo</Badge> : <Badge color={T.muted} small>{p.v ? 'Desativado' : 'Não criado'}</Badge>}
       </div>
       <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
@@ -975,10 +934,10 @@ function StepPanel({ s, a, onChange, mode }) {
   const na = !!a.na?.[s.k]
   return (
     <div style={{ display:'grid', gap:14 }}>
-      <Card style={{ borderTop:`3px solid ${s.color}` }}>
+      <Card>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, flexWrap:'wrap' }}>
           <div>
-            <div style={{ fontSize:17, fontWeight:700 }}>{s.icon} {s.name}</div>
+            <div style={{ fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:9 }}>{(() => { const I = STEP_ICON[s.k]; return <I size={17} color={T.muted} strokeWidth={1.8}/> })()} {s.name}</div>
             {s.goal && <div style={{ fontSize:12, color:T.muted, marginTop:4 }}>Objetivo: {s.goal}</div>}
           </div>
           <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:T.muted, cursor:'pointer' }}>
@@ -989,9 +948,9 @@ function StepPanel({ s, a, onChange, mode }) {
         {!na && <div style={{ marginTop:12 }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5 }}>
             <span style={{ color:T.muted }}>{s.kind === 'items' ? `${p.done}/${p.total} ${s.unit}` : `${p.done}/${p.total} itens do checklist`}</span>
-            <span style={{ color:s.color, fontWeight:700 }}>{Math.round(p.pct * 100)}%</span>
+            <span style={{ color:T.text, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{Math.round(p.pct * 100)}%</span>
           </div>
-          <Bar pct={p.pct} color={s.color}/>
+          <Bar pct={p.pct} color={p.complete ? T.success : T.gold}/>
         </div>}
       </Card>
 
@@ -1005,7 +964,7 @@ function StepPanel({ s, a, onChange, mode }) {
       )}
 
       <Card>
-        <div style={{ fontWeight:700, marginBottom:8 }}>📝 Anotações da etapa</div>
+        <CardTitle icon={NotebookPen}>Anotações da etapa</CardTitle>
         <textarea value={a.notas?.[s.k] || ''} rows={3} placeholder="Briefing, decisões, combinados com o cliente…"
           onChange={e => onChange(x => ({ ...x, notas:{ ...(x.notas || {}), [s.k]: e.target.value } }))}
           style={{ ...inputS, resize:'vertical' }}/>
@@ -1034,7 +993,7 @@ function DiaADia({ a, onChange }) {
   return (
     <Card>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <div style={{ fontWeight:700 }}>🗓️ Roteiro dia a dia</div>
+        <div style={{ fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:8 }}><CalendarDays size={15} color={T.muted} strokeWidth={1.8}/> Roteiro dia a dia</div>
         <div style={{ display:'flex', gap:6 }}>
           <Btn small outline onClick={gerar}><Calendar size={12}/> Gerar dias pelas datas</Btn>
           <Btn small outline onClick={add}><Plus size={12}/> Dia</Btn>
@@ -1043,7 +1002,7 @@ function DiaADia({ a, onChange }) {
       {dias.length === 0 && <div style={{ fontSize:12, color:T.muted }}>Clique em "Gerar dias pelas datas" para criar um dia para cada data da viagem — a cidade vem das hospedagens cadastradas.</div>}
       {dias.map((d, i) => (
         <div key={d.id} className="ass-dia" style={{ display:'grid', gridTemplateColumns:'64px 150px 1fr 34px', gap:8, marginBottom:8, alignItems:'start' }}>
-          <div style={{ fontSize:13, fontWeight:700, color:T.gold, paddingTop:8 }}>Dia {i + 1}</div>
+          <div style={{ fontSize:13, fontWeight:600, color:T.muted, paddingTop:8 }}>Dia {i + 1}</div>
           <div style={{ display:'grid', gap:6 }}>
             <Field type="date" value={d.data} onChange={v => setDia(i, 'data', v)}/>
             <Field value={d.cidade} ph="Cidade" onChange={v => setDia(i, 'cidade', v)} list="ass-cidades"/>
@@ -1066,8 +1025,8 @@ function Checklist({ s, a, onChange }) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:6 }}>
         {s.checks.map(c => (
           <label key={c} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer',
-            background:checks[c] ? `${s.color}14` : 'rgba(255,255,255,0.03)', border:`1px solid ${checks[c] ? `${s.color}40` : 'rgba(255,255,255,0.06)'}` }}>
-            <input type="checkbox" checked={!!checks[c]} onChange={() => toggle(c)} style={{ accentColor:s.color, width:15, height:15 }}/>
+            background:checks[c] ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)', border:`1px solid ${checks[c] ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.06)'}` }}>
+            <input type="checkbox" checked={!!checks[c]} onChange={() => toggle(c)} style={{ accentColor:T.success, width:15, height:15 }}/>
             <span style={{ fontSize:13, color:checks[c] ? T.text : T.muted, textDecoration:checks[c] ? 'none' : 'none' }}>{c}</span>
           </label>
         ))}
@@ -1093,19 +1052,19 @@ function Items({ s, a, onChange, mode }) {
         const done = s.done.includes(it.status)
         const stIdx = s.statuses.indexOf(it.status)
         return (
-          <Card key={it.id} style={{ padding:14, borderLeft:`3px solid ${done ? T.success : s.color}` }}>
+          <Card key={it.id} style={{ padding:14 }}>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12, alignItems:'center' }}>
               {s.statuses.map((st, j) => (
                 <button key={st} onClick={() => setItem(i, 'status', st)}
-                  style={{ fontSize:11, padding:'4px 10px', borderRadius:20, cursor:'pointer', fontFamily:'inherit', fontWeight:600,
-                    background:j <= stIdx ? `${s.done.includes(st) ? T.success : s.color}22` : 'transparent',
-                    color:j <= stIdx ? (s.done.includes(st) ? T.success : s.color) : T.muted,
-                    border:`1px solid ${j === stIdx ? (s.done.includes(st) ? T.success : s.color) : 'rgba(255,255,255,0.1)'}` }}>
+                  style={{ fontSize:12, padding:'3px 10px', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+                    background:j === stIdx ? (s.done.includes(st) ? 'rgba(34,197,94,0.12)' : 'rgba(212,175,55,0.12)') : 'transparent',
+                    color:j === stIdx ? (s.done.includes(st) ? '#4ADE80' : T.gold) : j < stIdx ? T.text : T.faint,
+                    border:`1px solid ${j === stIdx ? (s.done.includes(st) ? 'rgba(34,197,94,0.4)' : 'rgba(212,175,55,0.4)') : 'rgba(255,255,255,0.08)'}` }}>
                   {st}
                 </button>
               ))}
               <span style={{ flex:1 }}/>
-              {it.link && <a href={it.link} target="_blank" rel="noreferrer" style={{ color:T.gold, fontSize:12, display:'inline-flex', gap:4, alignItems:'center' }}>
+              {it.link && <a href={it.link} target="_blank" rel="noreferrer" style={{ color:T.muted, fontSize:12, display:'inline-flex', gap:4, alignItems:'center' }}>
                 <ExternalLink size={12}/> abrir</a>}
               <button onClick={() => del(i)} title="Remover" style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><Trash2 size={14}/></button>
             </div>
@@ -1117,8 +1076,8 @@ function Items({ s, a, onChange, mode }) {
                     return (
                       <button key={t} onClick={() => setItem(i, 'tipo', t)}
                         style={{ fontSize:12, padding:'6px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:700,
-                          background:on ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.03)', color:on ? T.gold : T.muted,
-                          border:on ? '1px solid rgba(212,175,55,0.45)' : T.borderN }}>
+                          background:on ? 'rgba(255,255,255,0.07)' : 'transparent', color:on ? T.text : T.muted,
+                          border:on ? `1px solid ${T.lineStrong}` : T.borderN }}>
                         {t === 'Só ida' ? '→ Só ida' : '⇄ Ida e volta'}
                       </button>
                     )
@@ -1126,7 +1085,7 @@ function Items({ s, a, onChange, mode }) {
                 </div>
               )}
               {s.fields.filter(f => !f.volta || idaVolta(it)).map(f => (idaVolta(it) && f.lIda ? { ...f, l:f.lIda } : f)).map(f => (
-                f.sep ? <div key={f.k} style={{ gridColumn:'1 / -1', fontSize:12, fontWeight:700, color:T.gold, borderTop:f.sep.trim() ? T.borderN : 'none', paddingTop:f.sep.trim() ? 10 : 0, marginTop:f.sep.trim() ? 4 : -8 }}>{f.sep}</div> :
+                f.sep ? <div key={f.k} style={{ gridColumn:'1 / -1', fontSize:12, fontWeight:600, color:T.muted, borderTop:f.sep.trim() ? T.borderN : 'none', paddingTop:f.sep.trim() ? 10 : 0, marginTop:f.sep.trim() ? 4 : -8 }}>{f.sep}</div> :
                 <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
                   {f.t === 'airport' || f.t === 'airline'
                     ? <CityPicker label={f.l} value={it[f.k]} groups={f.t === 'airport' ? AEROPORTOS : CIAS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
@@ -1188,9 +1147,9 @@ function Anexos({ assId, list, setList, mode }) {
     <div style={{ marginTop:12, paddingTop:10, borderTop:T.borderN }}>
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
         {list.map(x => (
-          <span key={x.id} style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(212,175,55,0.08)',
-            border:'1px solid rgba(212,175,55,0.25)', borderRadius:8, padding:'4px 6px 4px 10px', fontSize:12, maxWidth:'100%' }}>
-            <FileText size={13} color={T.gold}/>
+          <span key={x.id} style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.04)',
+            border:`1px solid ${T.lineStrong}`, borderRadius:6, padding:'4px 6px 4px 10px', fontSize:12, maxWidth:'100%' }}>
+            <FileText size={13} color={T.muted}/>
             <a href={cloud ? anexoUrl(assId, x) : undefined} target="_blank" rel="noreferrer"
               style={{ color:T.text, textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:220 }}>{x.nome}</a>
             {x.tamanho > 0 && <span style={{ color:T.muted, fontSize:11 }}>{fmtKB(x.tamanho)}</span>}
@@ -1226,13 +1185,13 @@ function Templates({ s, a }) {
   }
   return (
     <Card>
-      <div style={{ fontWeight:700, marginBottom:10 }}>📋 Templates da etapa</div>
+      <CardTitle icon={MessageSquareText}>Mensagens prontas da etapa</CardTitle>
       <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
         {list.map(([name], i) => (
           <button key={name} onClick={() => setSel(sel === i ? null : i)}
-            style={{ fontSize:12, padding:'6px 12px', borderRadius:20, cursor:'pointer', fontFamily:'inherit',
-              background:sel === i ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
-              color:sel === i ? T.gold : T.text, border:sel === i ? T.border : T.borderN }}>{name}</button>
+            style={{ fontSize:12, padding:'5px 11px', borderRadius:6, cursor:'pointer', fontFamily:'inherit',
+              background:sel === i ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color:sel === i ? T.text : T.muted, border:`1px solid ${sel === i ? T.lineStrong : T.line}` }}>{name}</button>
         ))}
       </div>
       {sel !== null && (
@@ -1258,12 +1217,12 @@ function NewModal({ onClose, onSave }) {
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
   const save = async () => { setBusy(true); await onSave(f); setBusy(false) }
   return (
-    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex',
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(3,7,15,0.72)', display:'flex',
       alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
       <div onClick={e => e.stopPropagation()} className="ass-scroll"
-        style={{ background:T.card, borderRadius:14, padding:24, width:680, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', border:T.border }}>
+        style={{ background:T.card, borderRadius:12, padding:22, width:680, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', border:`1px solid ${T.lineStrong}`, boxShadow:'0 24px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <div style={{ fontSize:18, fontWeight:700 }}>🧳 Nova assessoria</div>
+          <div style={{ fontSize:16, fontWeight:700 }}>Nova assessoria</div>
           <button onClick={onClose} style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer' }}><X size={20}/></button>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -1282,7 +1241,7 @@ function NewModal({ onClose, onSave }) {
           <datalist id="ass-resp-new"><option value="Joseph"/></datalist>
         </div>
         <div style={{ marginTop:18, paddingTop:14, borderTop:T.borderN }}>
-          <div style={{ fontWeight:700, marginBottom:4 }}>🛂 Passageiros</div>
+          <div style={{ fontWeight:600, fontSize:13, marginBottom:4 }}>Passageiros</div>
           <div style={{ fontSize:11, color:T.muted, marginBottom:10 }}>Opcional agora — dá para completar depois na ficha.</div>
           <Passageiros compact list={f.passageiros} setList={fn => setF(p => ({ ...p, passageiros: fn(p.passageiros) }))}/>
         </div>
