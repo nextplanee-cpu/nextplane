@@ -328,10 +328,12 @@ const itensDoPortal = (a, s) => {
   }))
   return []
 }
+/* Primeiro nome de verdade (pula códigos tipo "#01" no começo do nome) */
+const primeiroNome = c => { const ws = String(c || '').trim().split(/\s+/); return ws.find(w => /^\p{L}/u.test(w)) || ws[0] || '' }
 function portalView(a) {
   const atual = currentStep(a)
   return {
-    cliente: String(a.cliente || '').trim().split(/\s+/)[0] || '',
+    cliente: primeiroNome(a.cliente),
     destino: a.destino || '', origem: a.origem || '', inicio: a.inicio || '', fim: a.fim || '', viajantes: a.viajantes || '',
     etapas: STEPS.filter(s => !a.na?.[s.k]).map(s => {
       const p = progress(a, s)
@@ -345,7 +347,7 @@ function portalView(a) {
 
 function fillTemplate(txt, a) {
   const vars = {
-    cliente: a.cliente || '', primeiro_nome: String(a.cliente || '').trim().split(/\s+/)[0] || '',
+    cliente: a.cliente || '', primeiro_nome: primeiroNome(a.cliente),
     origem: a.origem || '', destino: a.destino || '', periodo: periodo(a), responsavel: a.responsavel || 'Joseph',
     dias: daysTo(a.inicio) ?? '—',
     localizadores: (a.aereo || []).filter(v => v.localizador).map(v => `✈️ ${trechoDe(v) || 'Voo'}${v.voo ? ` · ${v.voo}` : ''}${v.data ? ` (${fmtD(v.data)}${idaVolta(v) && v.data_volta ? ` a ${fmtD(v.data_volta)}` : ''})` : ''}: ${v.localizador}`).join('\n') || '[localizadores]',
@@ -949,7 +951,7 @@ function PortalCard({ a, onChange, mode }) {
   const copiar = async () => {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
   }
-  const primeiro = String(a.cliente || '').trim().split(/\s+/)[0]
+  const primeiro = primeiroNome(a.cliente)
   const msg = `Olá, ${primeiro}! ✈️ Por este link você acompanha, em tempo real, cada etapa da organização da sua viagem${a.destino ? ` para ${a.destino}` : ''}:\n\n${url}\n\nQualquer dúvida é só me chamar por aqui.`
   const expira = a.fim ? addDays(a.fim, 7) : null
 
