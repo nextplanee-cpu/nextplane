@@ -59,6 +59,13 @@ const STEPS = [
       { k:'valor', l:'Valor R$', t:'number' },
       { k:'localizador', l:'Localizador', ph:'ABC123' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
     ] },
+  { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
+    statuses:HOTEL_ST, done:['Reservado','Voucher anexado'], blank:{ cidade:'', hotel:'', checkin:'', checkout:'', quarto:'', cafe:false, cancelamento:'', valor:'', confirmacao:'', link:'', status:'Pendente' },
+    fields:[
+      { k:'cidade', l:'Cidade' }, { k:'hotel', l:'Hotel', w:2 }, { k:'checkin', l:'Check-in', t:'date' }, { k:'checkout', l:'Check-out', t:'date' },
+      { k:'quarto', l:'Tipo de quarto' }, { k:'cafe', l:'Café da manhã', t:'check' }, { k:'cancelamento', l:'Cancelamento', ph:'Grátis até…' },
+      { k:'valor', l:'Valor R$', t:'number' }, { k:'confirmacao', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+    ] },
   { k:'trem', icon:'🚆', name:'Trem', short:'Trem', color:'#14B8A6', kind:'items', unit:'trechos comprados', add:'trecho de trem',
     statuses:TREM_ST, done:['Comprado','Bilhete anexado'], blank:{ tipo:'Trem', de:'', para:'', data:'', hora:'', empresa:'', classe:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
     fields:[
@@ -79,13 +86,6 @@ const STEPS = [
       { k:'devolucao_local', l:'Local de devolução', ph:'Porto — centro', w:2 }, { k:'devolucao_data', l:'Data', t:'date' }, { k:'devolucao_hora', l:'Horário', t:'time' },
       { k:'_fim', sep:' ' },
       { k:'seguro', l:'Seguro / proteção', ph:'Cobertura total' }, { k:'valor', l:'Valor R$', t:'number' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
-    ] },
-  { k:'hotel', icon:'🏨', name:'Hospedagem', short:'Hospedagem', color:'#06B6D4', kind:'items', unit:'confirmadas', add:'hospedagem',
-    statuses:HOTEL_ST, done:['Reservado','Voucher anexado'], blank:{ cidade:'', hotel:'', checkin:'', checkout:'', quarto:'', cafe:false, cancelamento:'', valor:'', confirmacao:'', link:'', status:'Pendente' },
-    fields:[
-      { k:'cidade', l:'Cidade' }, { k:'hotel', l:'Hotel', w:2 }, { k:'checkin', l:'Check-in', t:'date' }, { k:'checkout', l:'Check-out', t:'date' },
-      { k:'quarto', l:'Tipo de quarto' }, { k:'cafe', l:'Café da manhã', t:'check' }, { k:'cancelamento', l:'Cancelamento', ph:'Grátis até…' },
-      { k:'valor', l:'Valor R$', t:'number' }, { k:'confirmacao', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
   { k:'seguro', icon:'🛡️', name:'Seguro viagem', short:'Seguro', color:'#10B981', kind:'items', unit:'contratados', add:'seguro',
     statuses:SEGURO_ST, done:['Contratado','Apólice enviada'], blank:{ seguradora:'', plano:'', cobertura:'', inicio:'', fim:'', viajantes:'', valor:'', apolice:'', link:'', status:'Pendente' },
@@ -119,8 +119,8 @@ const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
 const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
 /* Financeiro: lucro que você tem vendendo cada etapa (interno — sem passagens aéreas)
    e economia que o cliente teve com a assessoria (aparece no link do cliente) */
-const LUCRO_ETAPAS    = ['trem','aluguel','hotel','seguro','exp','internet']
-const ECONOMIA_ETAPAS = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
+const LUCRO_ETAPAS    = ['hotel','trem','aluguel','seguro','exp','internet']
+const ECONOMIA_ETAPAS = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
 const OUTROS = { k:'outros', short:'Outros' }
 const somaDe = obj => Object.values(obj || {}).reduce((t, v) => t + (Number(v) || 0), 0)
 const lucroTotal    = a => somaDe(a.lucro)
