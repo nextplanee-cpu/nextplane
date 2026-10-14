@@ -25,10 +25,11 @@ export default function Acompanhar() {
 
   useEffect(() => {
     document.title = 'Acompanhe sua viagem | Next Plane'
-    const meta = document.createElement('meta')
-    meta.name = 'robots'; meta.content = 'noindex, nofollow'
-    document.head.appendChild(meta)
-    return () => meta.remove()
+    // index.html diz "index, follow" para o site; aqui a página é privada
+    const meta = document.querySelector('meta[name="robots"]')
+    const antes = meta?.content
+    if (meta) meta.content = 'noindex, nofollow'
+    return () => { if (meta) meta.content = antes }
   }, [])
 
   useEffect(() => {
