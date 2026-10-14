@@ -177,10 +177,10 @@ function Viagem({ v, token }) {
             <ArrowRight size={16} color={T.gold}/>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Próximo passo</div>
+            <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Próximo passo{v.proxima.etapa ? <> · <span style={{ color: T.gold }}>{v.proxima.etapa}</span></> : null}</div>
             <div style={{ fontSize: 15, fontWeight: 600, marginTop: 3 }}>{v.proxima.acao}</div>
-            {v.proxima.data && <div style={{ fontSize: 12, color: T.faint, marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={12}/> Previsto para {fmtCurto(v.proxima.data)}</div>}
+            {v.proxima.detalhe && <div style={{ fontSize: 12, color: T.faint, marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={12}/> {v.proxima.detalhe}</div>}
           </div>
         </Card>
       )}

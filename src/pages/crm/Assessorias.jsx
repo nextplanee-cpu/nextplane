@@ -340,9 +340,27 @@ function portalView(a) {
       return { k:s.k, nome:s.short, icon:s.icon, estado:p.complete ? 'feito' : s.k === atual?.k ? 'atual' : 'pendente',
         done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '', itens:itensDoPortal(a, s) }
     }),
-    proxima: a.proxima_acao ? { acao:a.proxima_acao, data:a.proxima_data || '' } : null,
+    proxima: proximoPasso(a),
     atualizado: new Date().toISOString(),
   }
+}
+
+/* Próximo passo calculado pela etapa atual — sempre bate com o andamento (não depende de texto digitado) */
+const STATUS_CLIENTE = {
+  'Pendente':'Em preparação', 'Definido':'Em preparação', 'Em pesquisa':'Pesquisando as melhores opções',
+  'Cotado':'Cotação em andamento', 'Opções enviadas':'Opções enviadas para você', 'Aguardando cliente':'Aguardando a sua aprovação',
+  'Aprovado':'Aprovado, em compra',
+}
+function proximoPasso(a) {
+  const s = currentStep(a)
+  if (!s) return null
+  if (s.kind === 'items') {
+    const it = (a[s.k] || []).find(i => !s.done.includes(i.status))
+    if (!it) return { etapa:s.short, acao:`Preparar as opções de ${s.short.toLowerCase()}`, detalhe:'Em preparação pela nossa equipe' }
+    return { etapa:s.short, acao:detalhe(s.k, it).titulo, detalhe:STATUS_CLIENTE[it.status] || it.status }
+  }
+  const falta = s.checks.find(c => !a.checks?.[s.k]?.[c])
+  return { etapa:s.short, acao:falta || s.name, detalhe:s.goal || '' }
 }
 
 function fillTemplate(txt, a) {
@@ -876,11 +894,22 @@ function Geral({ a, set, onChange, mode }) {
   return (
     <div style={{ display:'grid', gap:14 }}>
       <Card>
-        <CardTitle icon={Target}>Próxima ação</CardTitle>
+        <CardTitle icon={Target} right={<span style={{ fontSize:11, color:T.faint }}>interno · o cliente não vê</span>}>Próxima ação</CardTitle>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 170px', gap:10 }}>
           <Field value={a.proxima_acao} onChange={v => set('proxima_acao', v)} ph="Ex.: enviar opções de voo"/>
           <Field type="date" value={a.proxima_data} onChange={v => set('proxima_data', v)}/>
         </div>
+        {(() => {
+          const p = proximoPasso(a)
+          if (!p) return null
+          const sugestao = `${p.etapa}: ${p.acao}`
+          return (
+            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginTop:10, fontSize:12, color:T.muted }}>
+              <span>Pela etapa atual: <b style={{ color:T.text, fontWeight:600 }}>{sugestao}</b>{p.detalhe ? ` · ${p.detalhe}` : ''}</span>
+              {a.proxima_acao !== sugestao && <Btn ghost small onClick={() => set('proxima_acao', sugestao)}>Usar</Btn>}
+            </div>
+          )
+        })()}
       </Card>
 
       <PortalCard a={a} onChange={onChange} mode={mode}/>
@@ -963,7 +992,7 @@ function PortalCard({ a, onChange, mode }) {
       </div>
       <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
         O cliente vê o andamento e os detalhes de cada etapa: voos, hotéis, seguro, ingressos e internet (com localizador e nº da reserva),
-        roteiro dia a dia, próxima ação e os anexos e links de bilhetes e vouchers.
+        roteiro dia a dia, o próximo passo (calculado pela etapa atual) e os anexos e links de bilhetes e vouchers.
         Nada de passaporte, CPF, valores ou anotações internas — e ele não consegue alterar nada.
         {expira && <> O link expira em <b style={{ color:T.text }}>{fmtD(expira)}/{expira.slice(0, 4)}</b> (7 dias após a volta).</>}
       </div>
@@ -985,7 +1014,7 @@ function PortalCard({ a, onChange, mode }) {
             <Btn small outline onClick={novoLink} title="O link antigo deixa de funcionar">Gerar novo link</Btn>
             <Btn small danger onClick={desativar}>Desativar</Btn>
           </div>
-          <div style={{ fontSize:11, color:T.muted }}>A "Próxima ação" acima também aparece para o cliente — escreva pensando nele.</div>
+          <div style={{ fontSize:11, color:T.muted }}>O "Próximo passo" que o cliente vê sai sozinho da etapa atual e do primeiro item pendente dela.</div>
         </div>
       )}
     </Card>

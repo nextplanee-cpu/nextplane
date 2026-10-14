@@ -91,7 +91,7 @@ export function publicView(view = {}, { status, responsavel } = {}) {
       goal:   str(e.goal, 200),
       itens:  arr(e.itens, 60).map(item),
     })),
-    proxima: view.proxima?.acao ? { acao: str(view.proxima.acao, 200), data: date(view.proxima.data) } : null,
+    proxima: view.proxima?.acao ? { etapa: str(view.proxima.etapa, 60), acao: str(view.proxima.acao, 200), detalhe: str(view.proxima.detalhe, 200) } : null,
     atualizado: str(view.atualizado, 30),
   }
 }
