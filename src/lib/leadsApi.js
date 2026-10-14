@@ -32,6 +32,8 @@ export const sessionMe   = () => fetch('/api/auth?action=me', { credentials: 'sa
   .then(async r => ({ status: r.status, data: await r.json().catch(() => ({})) }))
 export const login       = (email, password) => apiFetch('/api/auth?action=login', { method: 'POST', body: { email, password } })
 export const logout      = () => apiFetch('/api/auth?action=logout', { method: 'POST' }).catch(() => {})
+export const forgotPassword = email => apiFetch('/api/auth?action=forgot', { method: 'POST', body: { email } })
+export const resetPassword  = (access_token, password) => apiFetch('/api/auth?action=reset', { method: 'POST', body: { access_token, password } })
 export const encryptOld  = () => apiFetch('/api/auth?action=encrypt', { method: 'POST' })
 export const fetchAudit  = () => apiFetch('/api/auth?action=audit')
 

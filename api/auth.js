@@ -4,6 +4,8 @@
  * GET  ?action=me         → usuário logado { email, nome, role } (ou 401)
  * POST ?action=login      → { email, password }
  * POST ?action=logout     → encerra a sessão
+ * POST ?action=forgot     → { email } envia o link de troca de senha por e-mail
+ * POST ?action=reset      → { access_token, password } grava a senha nova (token vem do link)
  * GET  ?action=google     → redireciona para o Google (OAuth2 + PKCE)
  * GET  ?action=callback   → volta do Google, troca o código pela sessão
  * POST ?action=encrypt    → (admin) criptografa registros antigos
@@ -60,6 +62,44 @@ export default async function handler(req, res) {
       setSession(res, r.data)
       audit(profile, 'login', 'auth', null, ip)
       return res.status(200).json(profile)
+    }
+
+    /* Esqueci minha senha: o Supabase manda um e-mail com link de volta para /crm */
+    if (action === 'forgot' && req.method === 'POST') {
+      if (!sameOrigin(req)) return res.status(403).json({ error: 'bad_origin' })
+      const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200)
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'bad_request' })
+      if (!rateLimit(`forgot:${email}`, { max: 3, windowMs: 60 * 60_000 }) ||
+          !rateLimit(`forgot-ip:${ip}`, { max: 10, windowMs: 60 * 60_000 })) {
+        return res.status(429).json({ error: 'too_many_attempts' })
+      }
+      // Só envia para quem tem acesso ao CRM; a resposta é a mesma nos dois casos (não revela quem existe)
+      if (await loadProfile(email)) {
+        const r = await gotrue(`recover?redirect_to=${encodeURIComponent(`${origin(req)}/crm`)}`, { method: 'POST', body: { email } })
+        if (!r.ok) console.error('[auth] recover', r.status, JSON.stringify(r.data))
+        audit({ email }, r.ok ? 'senha_link_enviado' : 'senha_link_falhou', 'auth', null, ip)
+      }
+      return res.status(200).json({ ok: true })
+    }
+
+    /* Nova senha: recebe o token do link do e-mail (vale uma vez, por pouco tempo) */
+    if (action === 'reset' && req.method === 'POST') {
+      if (!sameOrigin(req)) return res.status(403).json({ error: 'bad_origin' })
+      if (!rateLimit(`reset-ip:${ip}`, { max: 10, windowMs: 15 * 60_000 })) return res.status(429).json({ error: 'too_many_attempts' })
+      const token = String(req.body?.access_token || '')
+      const password = String(req.body?.password || '')
+      if (!token || token.length > 4000) return res.status(400).json({ error: 'bad_request' })
+      if (password.length < 10 || password.length > 200) return res.status(400).json({ error: 'weak_password' })
+      const r = await gotrue('user', { method: 'PUT', token, body: { password } })
+      if (!r.ok) {
+        const code = r.data?.error_code || r.data?.code
+        audit({ email: 'desconhecido' }, 'senha_troca_falhou', 'auth', null, ip)
+        if (code === 'same_password') return res.status(400).json({ error: 'same_password' })
+        if (code === 'weak_password') return res.status(400).json({ error: 'weak_password' })
+        return res.status(401).json({ error: 'link_expired' })
+      }
+      audit({ email: r.data?.email }, 'senha_trocada', 'auth', null, ip)
+      return res.status(200).json({ ok: true })
     }
 
     if (action === 'logout' && req.method === 'POST') {
