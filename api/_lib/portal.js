@@ -92,6 +92,10 @@ export function publicView(view = {}, { status, responsavel } = {}) {
       itens:  arr(e.itens, 60).map(item),
     })),
     proxima: view.proxima?.acao ? { etapa: str(view.proxima.etapa, 60), acao: str(view.proxima.acao, 200), detalhe: str(view.proxima.detalhe, 200) } : null,
+    economia: Number(view.economia?.total) > 0 ? {
+      total: Math.round(Number(view.economia.total) * 100) / 100,
+      itens: arr(view.economia.itens, 12).map(x => ({ nome: str(x?.nome, 60), valor: Math.round((Number(x?.valor) || 0) * 100) / 100 })).filter(x => x.valor > 0),
+    } : null,
     atualizado: str(view.atualizado, 30),
   }
 }

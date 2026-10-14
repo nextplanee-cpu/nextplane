@@ -10,7 +10,7 @@ import {
   Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
   Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall, TrainFront, Car, Ban, RotateCcw,
   Circle, MinusCircle, Target, FolderOpen, History, NotebookPen, MessageSquareText, Briefcase,
-  LayoutList, User, Settings,
+  LayoutList, User, Settings, Wallet,
 } from 'lucide-react'
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
@@ -117,7 +117,15 @@ const STEPS = [
 ]
 const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
 const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
-const CUSTOS  = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
+/* Financeiro: lucro que você tem vendendo cada etapa (interno — sem passagens aéreas)
+   e economia que o cliente teve com a assessoria (aparece no link do cliente) */
+const LUCRO_ETAPAS    = ['trem','aluguel','hotel','seguro','exp','internet']
+const ECONOMIA_ETAPAS = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
+const OUTROS = { k:'outros', short:'Outros' }
+const somaDe = obj => Object.values(obj || {}).reduce((t, v) => t + (Number(v) || 0), 0)
+const lucroTotal    = a => somaDe(a.lucro)
+const economiaTotal = a => somaDe(a.economia)
+const margemTotal   = a => (Number(a.valor) || 0) + lucroTotal(a)
 
 /* Fichas criadas na versão anterior: transportes passam para "Ingressos e trem" */
 const TRANSP_MAP = { 'Pendente':'Definido', 'Cotado':'Cotado', 'Aguardando cliente':'Aprovado', 'Reservado':'Comprado', 'Voucher anexado':'Voucher anexado' }
@@ -341,6 +349,10 @@ function portalView(a) {
         done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '', itens:itensDoPortal(a, s) }
     }),
     proxima: proximoPasso(a),
+    economia: economiaTotal(a) > 0 ? {
+      total: economiaTotal(a),
+      itens: [...ECONOMIA_ETAPAS.map(k => STEP[k]), OUTROS].filter(s => Number(a.economia?.[s.k]) > 0).map(s => ({ nome:s.short, valor:Number(a.economia[s.k]) })),
+    } : null,
     atualizado: new Date().toISOString(),
   }
 }
@@ -673,9 +685,9 @@ function Overview({ list, onOpen, onNew, mode }) {
           </Empty>
         ) : (
           <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:880 }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:960 }}>
               <thead>
-                <tr>{['Cliente','Destino','Embarque','Etapa atual','Progresso','Responsável','Status',''].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr>
+                <tr>{['Cliente','Destino','Embarque','Etapa atual','Progresso','Margem','Responsável','Status',''].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {rows.map(a => {
@@ -706,6 +718,7 @@ function Overview({ list, onOpen, onNew, mode }) {
                         <StepTrack a={a}/>
                         <div style={{ fontSize:11, color:T.faint, marginTop:5, ...num }}>{feitas} de {STEPS.length} etapas</div>
                       </td>
+                      <td style={{ ...td, ...num, whiteSpace:'nowrap' }}>{fmtR(margemTotal(a))}</td>
                       <td style={td}>{a.responsavel || '—'}</td>
                       <td style={td}><Badge color={STATUS[a.status]?.color || T.muted} small>{STATUS[a.status]?.label || a.status}</Badge></td>
                       <td style={{ ...td, width:48 }}>
@@ -781,6 +794,8 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
           <StepBtn active={tab === 'geral'} onClick={() => setTab('geral')} icon={<LayoutList size={16} color={T.muted} strokeWidth={1.8}/>} name="Visão geral"/>
           <StepBtn active={tab === 'pax'} onClick={() => setTab('pax')} icon={<Users size={16} color={T.muted} strokeWidth={1.8}/>} name="Passageiros"
             sub={`${(a.passageiros || []).length}/${a.viajantes || '?'}`}/>
+          <StepBtn active={tab === 'fin'} onClick={() => setTab('fin')} icon={<Wallet size={16} color={T.muted} strokeWidth={1.8}/>} name="Financeiro"
+            sub={fmtR(margemTotal(a))}/>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 10px 6px', fontSize:11, fontWeight:600, color:T.faint, letterSpacing:'0.4px', textTransform:'uppercase' }}>
             <span>Etapas</span><span style={{ ...num, textTransform:'none', letterSpacing:0 }}>{feitas} de {STEPS.length}</span>
           </div>
@@ -803,6 +818,7 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
                 <div style={{ fontSize:13, color:T.muted, margin:'-6px 0 14px' }}>Dados de cada viajante para emissões, seguro e reservas.</div>
                 <Passageiros list={a.passageiros || []} setList={fn => onChange(x => ({ ...x, passageiros: fn(x.passageiros || []) }))}/>
               </Card>)
+            : tab === 'fin' ? <Financeiro a={a} onChange={onChange}/>
             : <StepPanel s={STEP[tab]} a={a} onChange={onChange} mode={mode}/>}
         </div>
       </div>
@@ -889,8 +905,6 @@ function Passageiros({ list = [], setList, compact }) {
 
 /* ─── Visão geral: dados, viajantes, próxima ação, histórico ── */
 function Geral({ a, set, onChange, mode }) {
-  const custos = CUSTOS.reduce((s, k) => s + (a[k] || []).reduce((t, i) => t + (Number(i.valor) || 0), 0), 0)
-
   return (
     <div style={{ display:'grid', gap:14 }}>
       <Card>
@@ -916,7 +930,9 @@ function Geral({ a, set, onChange, mode }) {
 
       <KpiGrid min={150}>
         <Kpi label="Valor da assessoria" value={fmtR(a.valor)}/>
-        <Kpi label="Custos lançados" value={fmtR(custos)}/>
+        <Kpi label="Lucro nas etapas" value={fmtR(lucroTotal(a))} hint="interno"/>
+        <Kpi label="Margem total" value={fmtR(margemTotal(a))} hint="assessoria + etapas"/>
+        <Kpi label="Economia do cliente" value={fmtR(economiaTotal(a))} hint="aparece no link"/>
         <Kpi label="Passageiros" value={`${(a.passageiros || []).length} de ${a.viajantes || '?'}`}/>
       </KpiGrid>
 
@@ -948,6 +964,62 @@ function Geral({ a, set, onChange, mode }) {
             <span>{l.msg}</span>
           </div>
         ))}
+      </Card>
+    </div>
+  )
+}
+
+/* ─── Financeiro: lucro por etapa (interno) e economia do cliente (vai no link) ── */
+function FinLinhas({ a, campo, etapas, setIn }) {
+  return (
+    <div>
+      {[...etapas.map(k => STEP[k]), OUTROS].map((s, i) => {
+        const I = STEP_ICON[s.k] || Plus
+        return (
+          <div key={s.k} style={{ display:'grid', gridTemplateColumns:'1fr 160px', gap:12, alignItems:'center', padding:'8px 0', borderTop:i ? T.borderN : 'none' }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:13 }}>
+              <I size={15} color={T.faint} strokeWidth={1.8}/> {s.short}{a.na?.[s.k] && <span style={{ fontSize:11, color:T.faint }}>(n/a)</span>}
+            </span>
+            <Field type="number" ph="R$ 0" value={a[campo]?.[s.k]} onChange={v => setIn(campo, s.k, v)}/>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+const FinTotal = ({ label, value, strong }) => (
+  <div style={{ display:'flex', justifyContent:'space-between', gap:10, padding:'10px 0 0', marginTop:6, borderTop:T.border, fontSize:13 }}>
+    <span style={{ color:T.muted }}>{label}</span><b style={{ ...num, fontSize:strong ? 16 : 13, whiteSpace:'nowrap' }}>{value}</b>
+  </div>
+)
+function Financeiro({ a, onChange }) {
+  const setIn = (campo, k, v) => onChange(x => ({ ...x, [campo]: { ...(x[campo] || {}), [k]: v } }))
+  return (
+    <div style={{ display:'grid', gap:14 }}>
+      <KpiGrid min={150}>
+        <Kpi label="Valor da assessoria" value={fmtR(a.valor)}/>
+        <Kpi label="Lucro nas etapas" value={fmtR(lucroTotal(a))}/>
+        <Kpi label="Margem total" value={fmtR(margemTotal(a))} tone={T.gold}/>
+        <Kpi label="Economia do cliente" value={fmtR(economiaTotal(a))}/>
+      </KpiGrid>
+
+      <Card>
+        <CardTitle icon={Wallet} right={<span style={{ fontSize:11, color:T.faint }}>interno · o cliente não vê</span>}>Lucro por etapa</CardTitle>
+        <div style={{ fontSize:13, color:T.muted, margin:'-6px 0 10px' }}>
+          Quanto você ganhou vendendo cada etapa, além da assessoria (comissão, markup, repasse). Passagens aéreas ficam de fora.
+        </div>
+        <FinLinhas a={a} campo="lucro" etapas={LUCRO_ETAPAS} setIn={setIn}/>
+        <FinTotal label="Lucro nas etapas" value={fmtR(lucroTotal(a))}/>
+        <FinTotal label={`Margem total (assessoria ${fmtR(a.valor)} + etapas)`} value={fmtR(margemTotal(a))} strong/>
+      </Card>
+
+      <Card>
+        <CardTitle icon={CheckCircle2} right={<span style={{ fontSize:11, color:T.success }}>aparece no link do cliente</span>}>Economia do cliente</CardTitle>
+        <div style={{ fontSize:13, color:T.muted, margin:'-6px 0 10px' }}>
+          Quanto o cliente economizou em cada etapa por fazer a viagem com a Next Plane. O total e as etapas com valor aparecem no link de acompanhamento.
+        </div>
+        <FinLinhas a={a} campo="economia" etapas={ECONOMIA_ETAPAS} setIn={setIn}/>
+        <FinTotal label="Economia total do cliente" value={fmtR(economiaTotal(a))} strong/>
       </Card>
     </div>
   )
@@ -993,7 +1065,7 @@ function PortalCard({ a, onChange, mode }) {
       <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
         O cliente vê o andamento e os detalhes de cada etapa: voos, hotéis, seguro, ingressos e internet (com localizador e nº da reserva),
         roteiro dia a dia, o próximo passo (calculado pela etapa atual) e os anexos e links de bilhetes e vouchers.
-        Nada de passaporte, CPF, valores ou anotações internas — e ele não consegue alterar nada.
+        Também vê a economia que você lançar no Financeiro. Nada de passaporte, CPF, valores, lucro ou anotações internas — e ele não consegue alterar nada.
         {expira && <> O link expira em <b style={{ color:T.text }}>{fmtD(expira)}/{expira.slice(0, 4)}</b> (7 dias após a volta).</>}
       </div>
       {mode !== 'cloud' ? (

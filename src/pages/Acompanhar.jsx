@@ -8,7 +8,7 @@ import { useParams } from 'react-router-dom'
 import {
   Plane, Calendar, MapPin, Users, ChevronDown, Check, FileText, Image as ImageIcon, Download, Eye,
   ExternalLink, MessageCircle, Handshake, Compass, TrainFront, Car, BedDouble, ShieldCheck, Ticket,
-  Wifi, CalendarDays, ArrowRight, Clock, Lock, FolderOpen,
+  Wifi, CalendarDays, ArrowRight, Clock, Lock, FolderOpen, PiggyBank,
 } from 'lucide-react'
 import { T, num, GlobalStyle, Card, Bar } from './crm/ui'
 import { PHONE } from '../lib/whatsapp'
@@ -21,6 +21,7 @@ const iconOf = k => ICON[k] || Check
 
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
 const fmtLongo = d => (d ? `${Number(d.slice(8, 10))} de ${MESES[Number(d.slice(5, 7)) - 1]} de ${d.slice(0, 4)}` : '')
+const fmtR = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })
 const fmtCurto = d => (d ? d.split('-').reverse().join('/') : '')
 const hoje = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}` }
 const diasAte = d => (d ? Math.round((new Date(`${d}T00:00`) - new Date(`${hoje()}T00:00`)) / 864e5) : null)
@@ -169,6 +170,30 @@ function Viagem({ v, token }) {
           <div style={{ fontSize: 12, color: T.faint, ...num }}>{feitas} de {etapas.length} etapas concluídas</div>
         </Card>
       </div>
+
+      {/* Economia com a assessoria */}
+      {v.economia?.total > 0 && (
+        <Card style={{ padding: 18 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <PiggyBank size={17} color="#4ADE80"/>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Sua economia com a assessoria</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#4ADE80', letterSpacing: '-0.4px', marginTop: 2, ...num }}>{fmtR(v.economia.total)}</div>
+            </div>
+          </div>
+          {v.economia.itens?.length > 1 && (
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.line}`, display: 'grid', gap: 6 }}>
+              {v.economia.itens.map(x => (
+                <div key={x.nome} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: T.muted }}>{x.nome}</span><span style={{ fontWeight: 600, ...num }}>{fmtR(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Próximo passo */}
       {v.proxima && !tudoPronto && (
