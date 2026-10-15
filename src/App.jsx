@@ -16,6 +16,7 @@ import TermsOfUse    from './pages/TermsOfUse'
 import CRM           from './pages/CRM'
 import FunilEuropa   from './pages/FunilEuropa'
 import Acompanhar    from './pages/Acompanhar'
+import Cliente       from './pages/Cliente'
 
 function HomePage() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/crm"                     element={<CRM />}           />
         <Route path="/funil-europa"            element={<FunilEuropa />}   />
         <Route path="/acompanhar/:token"       element={<Acompanhar />}    />
+        <Route path="/cliente"                element={<Cliente />}       />
       </Routes>
     </BrowserRouter>
   )

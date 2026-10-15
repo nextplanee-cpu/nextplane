@@ -56,6 +56,19 @@ export default function Acompanhar() {
   }, [token])
 
   return (
+    <Casca>
+      {st.loading ? <Aviso titulo="Carregando sua viagem…"/>
+        : st.erro === 410 ? <Aviso titulo="Este link expirou" texto="A viagem já terminou. Se precisar de algo, fale com a gente pelo WhatsApp." wa/>
+        : st.erro ? <Aviso titulo={st.erro === 404 ? 'Link indisponível' : 'Não foi possível carregar agora'}
+            texto={st.erro === 404 ? 'Este link não existe mais ou foi desativado. Peça um novo ao seu consultor.' : 'Tente novamente em alguns instantes.'} wa/>
+        : <Viagem v={st.data} token={token}/>}
+    </Casca>
+  )
+}
+
+/* Cabeçalho + rodapé da página do cliente (usada também em /cliente) */
+export function Casca({ children, sair }) {
+  return (
     <div className="crm-root" style={{ minHeight: '100vh', background: T.bg, color: T.text }}>
       <GlobalStyle/>
       <style>{`
@@ -75,19 +88,15 @@ export default function Acompanhar() {
             <div style={{ fontSize: 14, fontWeight: 700 }}>Next Plane</div>
             <div style={{ fontSize: 11, color: T.faint }}>Assessoria de viagem</div>
           </div>
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: T.faint, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Lock size={12}/> Acesso exclusivo
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: T.faint, display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Lock size={12}/> Acesso exclusivo</span>
+            {sair && <button type="button" onClick={sair} className="np-link"
+              style={{ background: 'transparent', border: `1px solid ${T.lineStrong}`, color: T.muted, borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Sair</button>}
           </span>
         </div>
       </header>
 
-      <main className="np-wrap" style={{ paddingTop: 28, paddingBottom: 48 }}>
-        {st.loading ? <Aviso titulo="Carregando sua viagem…"/>
-          : st.erro === 410 ? <Aviso titulo="Este link expirou" texto="A viagem já terminou. Se precisar de algo, fale com a gente pelo WhatsApp." wa/>
-          : st.erro ? <Aviso titulo={st.erro === 404 ? 'Link indisponível' : 'Não foi possível carregar agora'}
-              texto={st.erro === 404 ? 'Este link não existe mais ou foi desativado. Peça um novo ao seu consultor.' : 'Tente novamente em alguns instantes.'} wa/>
-          : <Viagem v={st.data} token={token}/>}
-      </main>
+      <main className="np-wrap" style={{ paddingTop: 28, paddingBottom: 48 }}>{children}</main>
 
       <footer style={{ borderTop: `1px solid ${T.line}`, padding: '20px 16px', textAlign: 'center', fontSize: 12, color: T.faint }}>
         Página exclusiva e somente para visualização · Next Plane Viagens
@@ -96,7 +105,7 @@ export default function Acompanhar() {
   )
 }
 
-function Aviso({ titulo, texto, wa }) {
+export function Aviso({ titulo, texto, wa }) {
   return (
     <div style={{ textAlign: 'center', padding: '72px 0' }}>
       <div style={{ width: 48, height: 48, borderRadius: 12, background: T.goldSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -117,7 +126,7 @@ const WaBtn = ({ texto, label = 'Falar no WhatsApp' }) => (
   </a>
 )
 
-function Viagem({ v, token }) {
+export function Viagem({ v, token, fileUrl }) {
   const [aberta, setAberta] = useState({})
   const etapas = v.etapas || []
   const feitas = etapas.filter(e => e.estado === 'feito').length
@@ -246,7 +255,7 @@ function Viagem({ v, token }) {
                 </button>
                 {temItens && open && (
                   <div style={{ display: 'grid', gap: 8, padding: '0 18px 16px 62px' }} className="np-itens">
-                    {e.itens.map((it, j) => <ItemCard key={j} it={it} token={token}/>)}
+                    {e.itens.map((it, j) => <ItemCard key={j} it={it} token={token} fileUrl={fileUrl}/>)}
                   </div>
                 )}
               </li>
@@ -272,7 +281,7 @@ function Viagem({ v, token }) {
                       <div style={{ fontSize: 12, color: T.muted, marginTop: 1 }}>{[d.etapa.nome, d.sub].filter(Boolean).join(' · ')}</div>
                     </div>
                   </div>
-                  <Arquivos it={d} token={token}/>
+                  <Arquivos it={d} token={token} fileUrl={fileUrl}/>
                 </div>
               )
             })}
@@ -297,7 +306,7 @@ function Viagem({ v, token }) {
 }
 
 /* Um voo, trem, aluguel, hotel, seguro, ingresso ou dia do roteiro */
-function ItemCard({ it, token }) {
+function ItemCard({ it, token, fileUrl }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.line}`, borderRadius: 8, padding: '12px 14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
@@ -321,13 +330,13 @@ function ItemCard({ it, token }) {
         </dl>
       )}
       {it.texto && <p style={{ fontSize: 13, color: T.muted, whiteSpace: 'pre-wrap', margin: '10px 0 0', lineHeight: 1.6 }}>{it.texto}</p>}
-      <Arquivos it={it} token={token}/>
+      <Arquivos it={it} token={token} fileUrl={fileUrl}/>
     </div>
   )
 }
 
 /* Anexos (abrir / baixar pelo link do cliente) e link externo */
-function Arquivos({ it, token }) {
+function Arquivos({ it, token, fileUrl }) {
   const anexos = it.anexos || []
   if (!anexos.length && !it.link) return null
   const btn = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: T.muted, textDecoration: 'none',
@@ -335,7 +344,7 @@ function Arquivos({ it, token }) {
   return (
     <div style={{ display: 'grid', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.line}` }}>
       {anexos.map(x => {
-        const url = `/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`
+        const url = fileUrl ? fileUrl(x.id) : `/api/portal?t=${encodeURIComponent(token)}&f=${encodeURIComponent(x.id)}`
         const Ic = x.tipo === 'application/pdf' ? FileText : ImageIcon
         return (
           <div key={x.id} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

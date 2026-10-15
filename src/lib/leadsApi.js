@@ -1,6 +1,6 @@
 /**
- * Next Plane — acesso aos leads na nuvem (via /api/leads na Vercel).
- * A sessão fica num cookie httpOnly (JWT do Supabase) — nenhuma chave ou token
+ * Next Plane — acesso aos leads na nuvem (via /api/leads).
+ * A sessão fica num cookie httpOnly (JWT assinado pelo servidor) — nenhuma chave ou token
  * é guardado no navegador nem acessível pelo JavaScript da página.
  */
 
@@ -31,11 +31,18 @@ const call = (method, { query = '', body } = {}) => apiFetch(`/api/leads${query}
 export const sessionMe   = () => fetch('/api/auth?action=me', { credentials: 'same-origin' })
   .then(async r => ({ status: r.status, data: await r.json().catch(() => ({})) }))
 export const login       = (email, password) => apiFetch('/api/auth?action=login', { method: 'POST', body: { email, password } })
-export const logout      = () => apiFetch('/api/auth?action=logout', { method: 'POST' }).catch(() => {})
-export const forgotPassword = email => apiFetch('/api/auth?action=forgot', { method: 'POST', body: { email } })
-export const resetPassword  = (access_token, password) => apiFetch('/api/auth?action=reset', { method: 'POST', body: { access_token, password } })
+export const logout      = () => apiFetch('/api/auth?action=logout', { method: 'POST', body: { tipo: 'staff' } }).catch(() => {})
+export const changePassword = (atual, nova) => apiFetch('/api/auth?action=senha', { method: 'POST', body: { tipo: 'staff', atual, nova } })
 export const encryptOld  = () => apiFetch('/api/auth?action=encrypt', { method: 'POST' })
 export const fetchAudit  = () => apiFetch('/api/auth?action=audit')
+
+/* ── Área do cliente (login por CPF + senha) ── */
+export const clienteMe      = () => fetch('/api/auth?action=me&tipo=cliente', { credentials: 'same-origin' })
+  .then(async r => ({ status: r.status, data: await r.json().catch(() => ({})) }))
+export const clienteLogin   = (cpf, password) => apiFetch('/api/auth?action=cliente-login', { method: 'POST', body: { cpf, password } })
+export const clienteLogout  = () => apiFetch('/api/auth?action=logout', { method: 'POST', body: { tipo: 'cliente' } }).catch(() => {})
+export const clienteSenha   = (atual, nova) => apiFetch('/api/auth?action=senha', { method: 'POST', body: { tipo: 'cliente', atual, nova } })
+export const clienteViagens = () => apiFetch('/api/cliente')
 
 /* Linha do banco → formato usado pelas telas do CRM */
 export function rowToLead(r) {

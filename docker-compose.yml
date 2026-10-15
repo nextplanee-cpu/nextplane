@@ -1,0 +1,86 @@
+# Next Plane em um servidor: banco PostgreSQL + aplicação + HTTPS automático (Caddy).
+#
+#   1. npm run gerar-env -- --email voce@exemplo.com --dominio crm.seudominio.com.br
+#   2. docker compose up -d --build
+#
+# O banco NÃO é exposto para a internet (só a rede interna do compose enxerga a porta 5432).
+# A aplicação recebe só as senhas de que precisa — a senha do dono do banco fica só no passo `migrate`.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nextplane}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Passo único a cada atualização: cria/atualiza tabelas, usuário da aplicação e o 1º administrador
+  migrate:
+    build: .
+    image: nextplane:latest
+    restart: "no"
+    command: ["node", "server/migrate.js"]
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DB_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-nextplane}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_DB_USER: ${APP_DB_USER:-nextplane_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NOME: ${ADMIN_NOME:-Administrador}
+      ADMIN_SENHA_INICIAL: ${ADMIN_SENHA_INICIAL:-}
+
+  app:
+    build: .
+    image: nextplane:latest
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      DB_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-nextplane}
+      APP_DB_USER: ${APP_DB_USER:-nextplane_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      CRM_ENCRYPTION_KEY: ${CRM_ENCRYPTION_KEY:?defina CRM_ENCRYPTION_KEY no .env}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:-}
+      META_PAGE_ACCESS_TOKEN: ${META_PAGE_ACCESS_TOKEN:-}
+      META_API_VERSION: ${META_API_VERSION:-}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMINIO: ${DOMINIO:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

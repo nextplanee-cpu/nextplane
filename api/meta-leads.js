@@ -14,7 +14,7 @@
 import crypto from 'node:crypto'
 import { metaLeadToRow } from './_lib/leads.js'
 import { fetchLead, fetchFormName } from './_lib/meta.js'
-import { dbConfigured, insertMetaLead } from './_lib/supabase.js'
+import { dbConfigured, insertMetaLead } from './_lib/db.js'
 
 async function readRaw(req) {
   const chunks = []

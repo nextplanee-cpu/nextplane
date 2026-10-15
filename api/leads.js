@@ -12,7 +12,7 @@
 import { requireUser } from './_lib/auth.js'
 import { sanitize, STAGE_PERDIDO } from './_lib/leads.js'
 import { clientIp } from './_lib/ratelimit.js'
-import { dbConfigured, listLeads, getLead, insertLead, updateLead, deleteLead, audit } from './_lib/supabase.js'
+import { dbConfigured, listLeads, getLead, insertLead, updateLead, deleteLead, audit } from './_lib/db.js'
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')

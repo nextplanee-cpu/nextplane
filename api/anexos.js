@@ -2,7 +2,7 @@
  * Anexos das assessorias (PDF ou imagem de bilhetes, vouchers, apólices).
  * Exige login no CRM e acesso à ficha (admin ou responsável).
  *
- * POST   ?a=<assessoria>&nome=<arquivo>&tipo=<mime>  corpo = o arquivo (binário, até 4 MB)
+ * POST   ?a=<assessoria>&nome=<arquivo>&tipo=<mime>  corpo = o arquivo (binário, até 8 MB)
  *        → { id, nome, tipo, tamanho }  (o CRM guarda isso no item da ficha)
  * GET    ?a=&f=&nome=&tipo=  → abre o arquivo
  * DELETE ?a=&f=               → apaga o arquivo
@@ -10,8 +10,8 @@
 import crypto from 'node:crypto'
 import { requireUser } from './_lib/auth.js'
 import { clientIp } from './_lib/ratelimit.js'
-import { dbConfigured, getAssessoriaOwner, audit } from './_lib/supabase.js'
-import { MAX_FILE, TIPOS, isFileId, uploadFile, downloadFile, removeFile, sendFile } from './_lib/storage.js'
+import { dbConfigured, getAssessoriaOwner, audit } from './_lib/db.js'
+import { MAX_FILE, TIPOS, isFileId, tipoReal, uploadFile, downloadFile, removeFile, sendFile } from './_lib/storage.js'
 
 export const config = { api: { bodyParser: false } }
 
@@ -28,16 +28,6 @@ function rawBody(req) {
     req.on('end', () => resolve(Buffer.concat(parts)))
     req.on('error', reject)
   })
-}
-
-/* Confere a assinatura do arquivo (não confia só no tipo informado pelo navegador) */
-function tipoReal(buf) {
-  const h = buf.subarray(0, 12)
-  if (h.subarray(0, 5).toString() === '%PDF-') return 'application/pdf'
-  if (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) return 'image/jpeg'
-  if (h.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png'
-  if (h.subarray(0, 4).toString() === 'RIFF' && h.subarray(8, 12).toString() === 'WEBP') return 'image/webp'
-  return null
 }
 
 export default async function handler(req, res) {

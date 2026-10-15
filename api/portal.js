@@ -10,7 +10,7 @@
  */
 import { requireUser } from './_lib/auth.js'
 import { clientIp, rateLimit } from './_lib/ratelimit.js'
-import { dbConfigured, getAssessoria, getAssessoriaOwner, audit } from './_lib/supabase.js'
+import { dbConfigured, getAssessoria, getAssessoriaOwner, audit } from './_lib/db.js'
 import { makeToken, readToken, expiraEm, publicView, anexoDoPortal } from './_lib/portal.js'
 import { isFileId, downloadFile, sendFile } from './_lib/storage.js'
 

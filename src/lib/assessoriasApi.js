@@ -1,5 +1,5 @@
 /**
- * Next Plane — fichas de Assessoria na nuvem (via /api/assessorias na Vercel).
+ * Next Plane — fichas de Assessoria na nuvem (via /api/assessorias).
  * Usa a mesma sessão (login) do CRM.
  */
 import { apiFetch } from './leadsApi'
@@ -37,6 +37,14 @@ export const removeAnexo = (assId, id) =>
 export const portalLink = (id, v) =>
   apiFetch(`/api/portal?id=${encodeURIComponent(id)}&v=${encodeURIComponent(v)}`)
     .then(({ token }) => `${window.location.origin}/acompanhar/${token}`)
+
+/* Acesso do cliente por CPF + senha (a senha provisória só vem na resposta de criar/redefinir) */
+const acessoUrl = id => `/api/acesso-cliente?assessoria=${encodeURIComponent(id)}`
+export const acessoStatus    = id => apiFetch(acessoUrl(id))
+export const acessoCriar     = (id, cpf, nome) => apiFetch('/api/acesso-cliente', { method: 'POST', body: { assessoria: id, cpf, nome } })
+export const acessoRedefinir = id => apiFetch('/api/acesso-cliente', { method: 'PUT', body: { assessoria: id } })
+export const acessoRemover   = id => apiFetch(acessoUrl(id), { method: 'DELETE' })
+export const clienteUrl      = () => `${window.location.origin}/cliente`
 
 /* WhatsApp com texto livre (assume Brasil se vier sem DDI) */
 export function waText(phone, text) {

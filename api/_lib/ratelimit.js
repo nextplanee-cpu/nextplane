@@ -1,11 +1,13 @@
 /**
  * Limite de tentativas por IP (em memória da função). Não é perfeito em serverless
  * (cada instância tem sua memória), mas corta força bruta e spam em rajada.
- * O login também tem o limite do próprio Supabase Auth por trás.
+ * O login também tem bloqueio persistente no banco (5 erros seguidos → 15 min).
  */
 const buckets = new Map()
 
 export function clientIp(req) {
+  // req.ip (Express com 'trust proxy') só confia no proxy da frente; o cabeçalho cru pode ser forjado
+  if (req.ip) return req.ip
   return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '?').split(',')[0].trim()
 }
 
@@ -27,7 +29,9 @@ export function sameOrigin(req) {
   const origin = req.headers.origin || req.headers.referer
   if (!origin) return false
   try {
-    const host = req.headers['x-forwarded-host'] || req.headers.host
-    return new URL(origin).host === host
+    const host = new URL(origin).host
+    const proprio = req.headers['x-forwarded-host'] || req.headers.host
+    const publico = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).host : null
+    return host === proprio || host === publico
   } catch { return false }
 }

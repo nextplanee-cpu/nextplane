@@ -5,7 +5,7 @@
  */
 import { sanitize } from './_lib/leads.js'
 import { rateLimit, clientIp, sameOrigin } from './_lib/ratelimit.js'
-import { dbConfigured, insertLead } from './_lib/supabase.js'
+import { dbConfigured, insertLead } from './_lib/db.js'
 
 const TEMPS = ['Frio', 'Morno', 'Quente', 'VIP']
 

@@ -15,7 +15,7 @@ import { clientIp } from './_lib/ratelimit.js'
 import { removeFolder } from './_lib/storage.js'
 import {
   dbConfigured, listAssessorias, getAssessoriaOwner, insertAssessoria, updateAssessoria, deleteAssessoria, audit,
-} from './_lib/supabase.js'
+} from './_lib/db.js'
 
 const MAX_BYTES = 300_000
 

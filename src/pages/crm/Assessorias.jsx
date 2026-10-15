@@ -10,11 +10,12 @@ import {
   Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
   Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall, TrainFront, Car, Ban, RotateCcw,
   Circle, MinusCircle, Target, FolderOpen, History, NotebookPen, MessageSquareText, Briefcase,
-  LayoutList, User, Settings, Wallet,
+  LayoutList, User, Settings, Wallet, KeyRound,
 } from 'lucide-react'
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
   uploadAnexo, removeAnexo, anexoUrl, MAX_ANEXO,
+  acessoStatus, acessoCriar, acessoRedefinir, acessoRemover, clienteUrl,
 } from '../../lib/assessoriasApi'
 import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
 
@@ -272,7 +273,7 @@ const TEMPLATES = {
 const uid = () => Math.random().toString(36).slice(2, 9)
 const todayISO = () => new Date().toISOString().slice(0, 10)
 const fmtD = d => (d ? d.split('-').reverse().slice(0, 2).join('/') : '—')
-const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits:0, maximumFractionDigits:2 })}`
+const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits:Number.isInteger(Number(v || 0)) ? 0 : 2, maximumFractionDigits:2 })}`
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const fmtMes = d => (d ? `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(2, 4)}` : '—')
 const periodo = a => (a.inicio ? `${fmtD(a.inicio)} a ${fmtD(a.fim)}` : 'datas a definir')
@@ -374,6 +375,8 @@ const itensDoPortal = (a, s) => {
 }
 /* Primeiro nome de verdade (pula códigos tipo "#01" no começo do nome) */
 const primeiroNome = c => { const ws = String(c || '').trim().split(/\s+/); return ws.find(w => /^\p{L}/u.test(w)) || ws[0] || '' }
+/* O retrato que o cliente enxerga é gerado quando existe link OU acesso por CPF */
+const portalOn = a => Boolean(a.portal?.ativo || a.acesso?.ativo)
 function portalView(a) {
   const atual = currentStep(a)
   return {
@@ -545,7 +548,7 @@ export default function Assessorias({ mode = 'local' }) {
      gera hoje (ficha antiga, etapas novas, migração), regrava sozinho — sem esperar uma edição */
   const semData = v => JSON.stringify({ ...(v || {}), atualizado:undefined })
   const syncPortais = items => items.forEach(a => {
-    if (!a.portal?.ativo || timers.current[a.id]) return
+    if (!portalOn(a) || timers.current[a.id]) return
     const view = portalView(a)
     if (semData(view) === semData(a.portal_view)) return
     const next = { ...a, portal_view:view }
@@ -580,7 +583,7 @@ export default function Assessorias({ mode = 'local' }) {
           log.unshift({ t: new Date().toISOString(), msg:`${s.short} concluída` })
       })
       if (a.status !== next.status) log.unshift({ t: new Date().toISOString(), msg:`Status: ${STATUS[next.status]?.label}` })
-      return { ...next, log: log.slice(0, 80), portal_view: next.portal?.ativo ? portalView(next) : undefined }
+      return { ...next, log: log.slice(0, 80), portal_view: portalOn(next) ? portalView(next) : undefined }
     }) }))
     if (storeRef.current.mode !== 'cloud') return
     clearTimeout(timers.current[id])
@@ -963,6 +966,7 @@ function Geral({ a, set, onChange, mode }) {
       </Card>
 
       <PortalCard a={a} onChange={onChange} mode={mode}/>
+      <AcessoCliente a={a} onChange={onChange} mode={mode}/>
 
       <KpiGrid min={150}>
         <Kpi label="Valor da assessoria" value={fmtR(a.valor)}/>
@@ -986,7 +990,7 @@ function Geral({ a, set, onChange, mode }) {
           <Field label="Nº de viajantes" type="number" value={a.viajantes} onChange={v => set('viajantes', v)}/>
           <Field label="Responsável" value={a.responsavel} onChange={v => set('responsavel', v)} list="ass-resp"/>
           <Field label="Contratado em" type="date" value={a.contratado_em} onChange={v => set('contratado_em', v)}/>
-          <Field label="Valor da assessoria (R$)" type="number" value={a.valor} onChange={v => set('valor', v)}/>
+          <MoneyField label="Valor da assessoria" value={a.valor} onChange={v => set('valor', v)}/>
         </div>
         <datalist id="ass-resp"><option value="Joseph"/></datalist>
       </Card>
@@ -1123,6 +1127,116 @@ function PortalCard({ a, onChange, mode }) {
             <Btn small danger onClick={desativar}>Desativar</Btn>
           </div>
           <div style={{ fontSize:11, color:T.muted }}>O "Próximo passo" que o cliente vê sai sozinho da etapa atual e do primeiro item pendente dela.</div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+/* ─── Acesso do cliente por CPF + senha (área /cliente) ── */
+const maskCpf = v => {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 11)
+  return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
+const ERRO_ACESSO = { cpf_invalido: 'Este CPF não é válido. Confira os números.', not_found: 'Ficha não encontrada.' }
+
+function AcessoCliente({ a, onChange, mode }) {
+  const [info,    setInfo]    = useState(null) // null = carregando · { ativo, cpf, trocar_senha, ultimo_acesso }
+  const [cpf,     setCpf]     = useState(() => maskCpf((a.passageiros || []).find(p => p.cpf)?.cpf))
+  const [cred,    setCred]    = useState(null) // { cpf, senha } só logo depois de criar/redefinir
+  const [busy,    setBusy]    = useState(false)
+  const [erro,    setErro]    = useState('')
+  const [copiado, setCopiado] = useState('')
+  const cloud = mode === 'cloud'
+
+  const carregar = () => acessoStatus(a.id).then(setInfo).catch(() => setInfo({ ativo:false, falhou:true }))
+  useEffect(() => {
+    setCred(null); setErro(''); setInfo(null)
+    if (cloud) carregar()
+  }, [a.id, cloud])
+
+  const rodar = async fn => {
+    setBusy(true); setErro('')
+    try { await fn() } catch (e) { setErro(ERRO_ACESSO[e.message] || 'Não foi possível concluir agora. Tente de novo.') }
+    finally { setBusy(false) }
+  }
+  const criar = () => rodar(async () => {
+    const r = await acessoCriar(a.id, cpf, a.cliente)
+    // a ficha passa a gerar o retrato que o cliente enxerga (portal_view)
+    onChange(x => ({ ...x, acesso:{ ativo:true, criado_em:new Date().toISOString() } }))
+    setCred(r.senha_provisoria ? { cpf:r.cpf, senha:r.senha_provisoria } : null)
+    await carregar()
+  })
+  const redefinir = () => {
+    if (!window.confirm('Gerar uma nova senha provisória? A senha atual do cliente deixa de funcionar e ele precisa criar outra no próximo acesso.')) return
+    rodar(async () => { const r = await acessoRedefinir(a.id); setCred({ cpf:info?.cpf, senha:r.senha_provisoria }); await carregar() })
+  }
+  const remover = () => {
+    if (!window.confirm('Remover o acesso do cliente a esta viagem? Ele não vai mais conseguir entrar para ver esta assessoria.')) return
+    rodar(async () => {
+      await acessoRemover(a.id)
+      onChange(x => ({ ...x, acesso:{ ativo:false } }))
+      setCred(null); setInfo({ ativo:false })
+    })
+  }
+  const copiar = async (txt, k) => {
+    try { await navigator.clipboard.writeText(txt); setCopiado(k); setTimeout(() => setCopiado(''), 1500) } catch {}
+  }
+  const msg = cred && `Olá, ${primeiroNome(a.cliente)}! ✈️ Aqui está o seu acesso para acompanhar a viagem${a.destino ? ` para ${a.destino}` : ''}:\n\nEndereço: ${clienteUrl()}\nCPF: ${cred.cpf}\nSenha provisória: ${cred.senha}\n\nNo primeiro acesso você vai criar a sua própria senha.`
+
+  const ativo = cloud && info?.ativo
+  return (
+    <Card style={{ border:T.border }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:8 }}>
+        <div style={{ fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:8 }}><KeyRound size={15} color={T.muted} strokeWidth={1.8}/> Acesso do cliente por CPF e senha</div>
+        {ativo ? <Badge color={info.trocar_senha ? T.warn : T.success} small>{info.trocar_senha ? 'Aguardando 1º acesso' : 'Ativo'}</Badge>
+          : <Badge color={T.muted} small>Não criado</Badge>}
+      </div>
+      <div style={{ fontSize:12, color:T.muted, lineHeight:1.6, marginBottom:12 }}>
+        O cliente entra em <b style={{ color:T.text }}>/cliente</b> com o CPF e uma senha provisória gerada aqui; no primeiro acesso ele é obrigado a criar a própria senha.
+        Ele vê o mesmo conteúdo do link de acompanhamento (andamento, documentos e economia) e não consegue alterar nada.
+      </div>
+
+      {!cloud ? (
+        <div style={{ fontSize:12, color:T.warn }}>Disponível apenas com os dados na nuvem.</div>
+      ) : info === null ? (
+        <div style={{ fontSize:12, color:T.muted }}>Carregando…</div>
+      ) : ativo ? (
+        <div style={{ display:'grid', gap:10 }}>
+          <div style={{ fontSize:13 }}>
+            CPF <b style={{ ...num }}>{info.cpf || '—'}</b>
+            <span style={{ color:T.muted }}> · {info.trocar_senha ? 'ainda não fez o primeiro acesso' : info.ultimo_acesso ? `último acesso em ${new Date(info.ultimo_acesso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : 'senha já criada'}</span>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <Btn small outline onClick={redefinir} disabled={busy}>Gerar nova senha provisória</Btn>
+            <Btn small danger onClick={remover} disabled={busy}>Remover acesso</Btn>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', gap:8, alignItems:'flex-end', flexWrap:'wrap' }}>
+          <div style={{ flex:'1 1 190px', maxWidth:240 }}>
+            <Field label="CPF do cliente" value={cpf} onChange={v => setCpf(maskCpf(v))} ph="000.000.000-00"/>
+          </div>
+          <Btn small onClick={criar} disabled={busy || cpf.replace(/\D/g, '').length !== 11}><KeyRound size={13}/> Criar acesso do cliente</Btn>
+        </div>
+      )}
+      {erro && <div style={{ fontSize:12, color:T.err, marginTop:10 }}>{erro}</div>}
+
+      {cred && (
+        <div style={{ marginTop:12, padding:12, borderRadius:8, background:T.goldSoft, border:'1px solid rgba(212,175,55,0.35)' }}>
+          <div style={{ fontSize:12, color:T.text, marginBottom:8 }}>
+            <b>Passe estes dados ao cliente.</b> A senha provisória aparece só agora; no primeiro acesso ele cria a dele.
+          </div>
+          <div style={{ display:'grid', gap:6, fontSize:13, ...num }}>
+            <div>CPF: <b>{cred.cpf}</b></div>
+            <div>Senha provisória: <b style={{ fontFamily:'monospace', fontSize:15, letterSpacing:'0.5px' }}>{cred.senha}</b></div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:10 }}>
+            <Btn small onClick={() => copiar(msg, 'msg')}><Copy size={12}/> {copiado === 'msg' ? 'Copiado!' : 'Copiar mensagem'}</Btn>
+            <Btn small outline onClick={() => copiar(cred.senha, 'senha')}>{copiado === 'senha' ? 'Copiado!' : 'Copiar só a senha'}</Btn>
+            {a.phone && <a href={waText(a.phone, msg)} target="_blank" rel="noreferrer" style={{ textDecoration:'none' }}>
+              <Btn small outline><MessageCircle size={12}/> Enviar no WhatsApp</Btn></a>}
+          </div>
         </div>
       )}
     </Card>
@@ -1452,7 +1566,7 @@ function NewModal({ onClose, onSave }) {
           <Field label="Nº de viajantes" type="number" value={f.viajantes} onChange={v => set('viajantes', v)}/>
           <Field label="Responsável" value={f.responsavel} onChange={v => set('responsavel', v)} list="ass-resp-new"/>
           <Field label="Data de contratação" type="date" value={f.contratado_em} onChange={v => set('contratado_em', v)}/>
-          <Field label="Valor da assessoria (R$)" type="number" value={f.valor} onChange={v => set('valor', v)}/>
+          <MoneyField label="Valor da assessoria" value={f.valor} onChange={v => set('valor', v)}/>
           <datalist id="ass-resp-new"><option value="Joseph"/></datalist>
         </div>
         <div style={{ marginTop:18, paddingTop:14, borderTop:T.borderN }}>
