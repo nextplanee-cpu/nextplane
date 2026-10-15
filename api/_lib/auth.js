@@ -28,8 +28,13 @@ export const COOKIE = { staff: 'np_at', cliente: 'np_ct' }
 const TABELA = { staff: 'crm_users', cliente: 'crm_clientes' }
 const CHAVE = { staff: 'email', cliente: 'id' }
 
+/* JWT_SECRET (mín. 32 caracteres). Se não existir, deriva uma chave própria da CRM_ENCRYPTION_KEY
+   (HMAC com rótulo fixo): mesma força, e dispensa configurar mais uma variável */
 function segredo() {
-  const s = process.env.JWT_SECRET || ''
+  let s = process.env.JWT_SECRET || ''
+  if (!s && process.env.CRM_ENCRYPTION_KEY) {
+    s = crypto.createHmac('sha256', process.env.CRM_ENCRYPTION_KEY).update('nextplane-jwt-v1').digest('hex')
+  }
   if (s.length < 32) throw new Error('JWT_SECRET ausente ou curto demais (mínimo 32 caracteres)')
   return new TextEncoder().encode(s)
 }

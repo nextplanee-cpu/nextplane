@@ -82,7 +82,7 @@ export function criarApp() {
 /* Confere o essencial antes de aceitar requisições: melhor não subir do que subir inseguro */
 export function conferirAmbiente() {
   const falta = []
-  if ((process.env.JWT_SECRET || '').length < 32) falta.push('JWT_SECRET (mínimo 32 caracteres)')
+  if ((process.env.JWT_SECRET || '').length < 32 && !process.env.CRM_ENCRYPTION_KEY) falta.push('JWT_SECRET (mínimo 32 caracteres)')
   try {
     if (Buffer.from(process.env.CRM_ENCRYPTION_KEY || '', 'base64').length !== 32) falta.push('CRM_ENCRYPTION_KEY (32 bytes em base64)')
   } catch { falta.push('CRM_ENCRYPTION_KEY') }

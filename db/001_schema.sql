@@ -83,7 +83,6 @@ create table if not exists crm_assessorias (
   updated_at  timestamptz default now()
 );
 create index if not exists crm_assessorias_created_at_idx on crm_assessorias (created_at desc);
-create index if not exists crm_assessorias_cliente_idx    on crm_assessorias (cliente_id);
 
 -- ─── Anexos (bilhetes, vouchers, apólices) — já chegam criptografados ──
 create table if not exists crm_anexos (

@@ -29,10 +29,23 @@ export async function uploadFile(assId, fileId, buf, tipo) {
   return { tipo }
 }
 
+/* Anexos enviados antes da mudança ficaram no Supabase Storage (bucket crm-anexos). Enquanto
+   SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY existirem no ambiente, continuam abrindo por aqui. */
+async function baixarDoStorageAntigo(assId, fileId) {
+  const { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key } = process.env
+  if (!url || !key) return null
+  try {
+    const res = await fetch(`${url}/storage/v1/object/crm-anexos/${encodeURIComponent(assId)}/${encodeURIComponent(fileId)}`, {
+      headers: { apikey: key, ...(key.startsWith('sb_') ? {} : { Authorization: `Bearer ${key}` }) },
+    })
+    return res.ok ? decryptBuffer(Buffer.from(await res.arrayBuffer())) : null
+  } catch { return null }
+}
+
 /* Buffer aberto ou null se não existe (ou se não é dessa assessoria) */
 export async function downloadFile(assId, fileId) {
   const { rows } = await query('select conteudo from crm_anexos where file_id = $1 and assessoria_id = $2', [fileId, assId])
-  if (!rows[0]) return null
+  if (!rows[0]) return baixarDoStorageAntigo(assId, fileId)
   return decryptBuffer(Buffer.from(rows[0].conteudo))
 }
 

@@ -15,10 +15,14 @@ pg.types.setTypeParser(1700, toNumber)
 
 const enc = encodeURIComponent
 
+/* "?sslmode=require" na URL mandaria no lugar de DB_SSL e o pg passaria a exigir o certificado da CA
+   (o Supabase usa uma CA própria): tiramos da URL e deixamos o DB_SSL decidir */
+const semSslmode = url => (process.env.DB_SSL === 'true' ? url.replace(/([?&])sslmode=[^&]*&?/, '$1').replace(/[?&]$/, '') : url)
+
 export function connectionString({ admin = false } = {}) {
   const e = process.env
-  if (!admin && e.DATABASE_URL) return e.DATABASE_URL
-  if (admin && e.DATABASE_ADMIN_URL) return e.DATABASE_ADMIN_URL
+  if (!admin && e.DATABASE_URL) return semSslmode(e.DATABASE_URL)
+  if (admin && e.DATABASE_ADMIN_URL) return semSslmode(e.DATABASE_ADMIN_URL)
   const user = admin ? e.POSTGRES_USER : e.APP_DB_USER
   const pass = admin ? e.POSTGRES_PASSWORD : e.APP_DB_PASSWORD
   if (!user || !pass) return ''
@@ -31,15 +35,17 @@ let driver = null
 
 async function open() {
   if (process.env.DB_DRIVER === 'pglite') {
-    const { PGlite } = await import('@electric-sql/pglite')
+    const pacote = '@electric-sql/pglite' // fora de literal: o bundle da Vercel não precisa carregar o PGlite
+    const { PGlite } = await import(pacote)
     const mem = new PGlite({ parsers: { 20: toNumber, 1700: toNumber } })
     await mem.waitReady
     return { query: async (text, params) => { const r = await mem.query(text, params); return { rows: r.rows, rowCount: r.affectedRows ?? r.rows.length } }, raw: mem }
   }
   const pool = new pg.Pool({
     connectionString: connectionString(),
-    max: 10,
-    idleTimeoutMillis: 30_000,
+    // serverless (Vercel): cada função abre a própria conexão — 1 por instância evita estourar o limite do banco
+    max: process.env.VERCEL ? 1 : 10,
+    idleTimeoutMillis: process.env.VERCEL ? 5_000 : 30_000,
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   })
   pool.on('error', err => console.error('[db] conexão ociosa caiu:', err.message))

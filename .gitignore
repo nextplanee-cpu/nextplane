@@ -3,3 +3,6 @@ dist/
 .env
 .env.local
 .netlify/
+
+# SQL local com hash da senha inicial do admin (não vai para o Git)
+*.local.sql
