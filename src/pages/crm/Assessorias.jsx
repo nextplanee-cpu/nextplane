@@ -18,6 +18,7 @@ import {
   acessoStatus, acessoCriar, acessoRedefinir, acessoRemover, clienteUrl,
 } from '../../lib/assessoriasApi'
 import { ORIGENS_BR, DESTINOS, AEROPORTOS, CIAS } from './cidades'
+import { ESTACOES } from './estacoes'
 
 /* ─── Design system compartilhado com o CRM (crm/ui.jsx) ─ */
 import {
@@ -71,7 +72,7 @@ const STEPS = [
     statuses:TREM_ST, done:['Comprado','Bilhete anexado'], blank:{ tipo:'Trem', de:'', para:'', data:'', hora:'', empresa:'', classe:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
     fields:[
       { k:'tipo', l:'Tipo', t:'select', opts:['Trem','Ônibus','Ferry / barco','Transfer'] },
-      { k:'de', l:'Saída (cidade / estação)', ph:'Paris — Gare du Nord', w:2 }, { k:'para', l:'Chegada (cidade / estação)', ph:'Londres — St Pancras', w:2 },
+      { k:'de', l:'Saída (cidade / estação)', t:'station', ph:'Estação, cidade ou sigla — ex.: XPG', w:2 }, { k:'para', l:'Chegada (cidade / estação)', t:'station', ph:'Estação, cidade ou sigla — ex.: QQS', w:2 },
       { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
       { k:'empresa', l:'Empresa', ph:'Eurostar, Trenitalia, Renfe…' }, { k:'classe', l:'Classe', ph:'Standard, 1ª classe…' },
       { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Bilhete (link)', ph:'https://', w:2 },
@@ -1415,8 +1416,8 @@ function Items({ s, a, onChange, mode }) {
               {s.fields.filter(f => !f.volta || idaVolta(it)).map(f => (idaVolta(it) && f.lIda ? { ...f, l:f.lIda } : f)).map(f => (
                 f.sep ? <div key={f.k} style={{ gridColumn:'1 / -1', fontSize:12, fontWeight:600, color:T.muted, borderTop:f.sep.trim() ? T.borderN : 'none', paddingTop:f.sep.trim() ? 10 : 0, marginTop:f.sep.trim() ? 4 : -8 }}>{f.sep}</div> :
                 <div key={f.k} style={{ gridColumn:f.w ? `span ${f.w}` : undefined }}>
-                  {f.t === 'airport' || f.t === 'airline'
-                    ? <CityPicker label={f.l} value={it[f.k]} groups={f.t === 'airport' ? AEROPORTOS : CIAS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
+                  {f.t === 'airport' || f.t === 'airline' || f.t === 'station'
+                    ? <CityPicker label={f.l} value={it[f.k]} groups={f.t === 'airport' ? AEROPORTOS : f.t === 'station' ? ESTACOES : CIAS} ph={f.ph} onChange={v => setItem(i, f.k, v)}/>
                     : f.t === 'select' ? <Select label={f.l} value={it[f.k]} opts={f.opts} onChange={v => setItem(i, f.k, v)}/>
                     : f.t === 'check' ? (
                       <div><Label>{f.l}</Label>
