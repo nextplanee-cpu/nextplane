@@ -39,6 +39,7 @@ const AEREO_ST    = ['Pendente','Em pesquisa','Opções enviadas','Aguardando cl
 const HOTEL_ST    = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
 const SEGURO_ST   = ['Pendente','Cotado','Aguardando cliente','Contratado','Apólice enviada']
 const EXP_ST      = ['Definido','Cotado','Aprovado','Comprado','Voucher anexado']
+const PASSEIO_ST  = ['Pendente','Cotado','Aguardando cliente','Comprado','Voucher anexado']
 const INTERNET_ST = ['Pendente','Cotado','Comprado','Enviado ao cliente']
 const TREM_ST     = ['Pendente','Cotado','Aguardando cliente','Comprado','Bilhete anexado']
 const ALUGUEL_ST  = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
@@ -106,9 +107,15 @@ const BASE_STEPS = [
       { k:'nome', l:'Nome', ph:'Museu do Louvre', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
       { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
-  { k:'passeio', icon:'🏝️', name:'Passeios e experiências', short:'Passeio', color:'#F59E0B', kind:'check',
-    goal:'Escolher e reservar os passeios e experiências da viagem.', out:'Passeios aprovados, reservados e com voucher na mão do cliente.',
-    checks:['Interesses e perfil de passeios levantados','Passeios pesquisados por cidade','Opções enviadas ao cliente','Cliente aprovou os passeios','Passeios reservados ou comprados','Vouchers enviados ao cliente'] },
+  { k:'passeio', icon:'🏝️', name:'Passeios e experiências', short:'Passeio', color:'#F59E0B', kind:'items', unit:'comprados', add:'passeio',
+    goal:'Escolher e reservar os passeios e experiências da viagem.', out:'Passeios reservados e com voucher na mão do cliente.',
+    statuses:PASSEIO_ST, done:['Comprado','Voucher anexado'], blank:{ tipo:'Passeio', nome:'', cidade:'', data:'', hora:'', operadora:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
+    fields:[
+      { k:'tipo', l:'Tipo', t:'select', opts:['Passeio','Tour','Experiência','Excursão','Parque','Show','Aula / workshop','Outro'] },
+      { k:'nome', l:'Nome do passeio', ph:'Tour de barco em Capri', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
+      { k:'operadora', l:'Operadora / fornecedor', ph:'GetYourGuide, Viator…' }, { k:'passageiros', l:'Pessoas', t:'number' },
+      { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+    ] },
   { k:'internet', icon:'📶', name:'Internet', short:'Internet', color:'#0EA5E9', kind:'items', unit:'comprados', add:'chip / eSIM',
     statuses:INTERNET_ST, done:['Comprado','Enviado ao cliente'], blank:{ tipo:'eSIM', operadora:'', regiao:'', dados:'', inicio:'', dias:'', valor:'', link:'', status:'Pendente' },
     fields:[
@@ -155,8 +162,8 @@ const stepsOf = a => {
 }
 /* Financeiro: lucro que você tem vendendo cada etapa (interno)
    e economia que o cliente teve com a assessoria (aparece no link do cliente) */
-const LUCRO_ETAPAS    = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
-const ECONOMIA_ETAPAS = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
+const LUCRO_ETAPAS    = ['aereo','hotel','trem','aluguel','seguro','exp','passeio','internet']
+const ECONOMIA_ETAPAS = ['aereo','hotel','trem','aluguel','seguro','exp','passeio','internet']
 const OUTROS = { k:'outros', short:'Outros' }
 const somaDe = obj => Object.values(obj || {}).reduce((t, v) => t + (Number(v) || 0), 0)
 const lucroTotal    = a => somaDe(a.lucro)
@@ -403,6 +410,8 @@ const detalhe = (k, it) => ({
     { l:'Proteção', v:it.seguro }, { l:'Nº da reserva', v:it.reserva }] }),
   exp: () => ({ titulo:it.nome || it.tipo || 'Ingresso', sub:[it.tipo, it.cidade].filter(Boolean).join(' · '), campos:[
     { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] }),
+  passeio: () => ({ titulo:it.nome || it.tipo || 'Passeio', sub:[it.tipo, it.cidade, it.operadora].filter(Boolean).join(' · '), campos:[
+    { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] }),
   internet: () => ({ titulo:[it.tipo, it.operadora].filter(Boolean).join(' · ') || 'Internet', sub:it.regiao, campos:[
     { l:'Dados', v:it.dados }, { l:'Ativação', v:fmtDA(it.inicio) }, { l:'Dias', v:it.dias }] }),
 })[k]()
@@ -645,7 +654,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   const create = async form => {
     const base = {
-      ...form, status:'andamento', checks:{}, na:{}, etapas:defaultEtapas(), aereo:[], trem:[], aluguel:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
+      ...form, status:'andamento', checks:{}, na:{}, etapas:defaultEtapas(), aereo:[], trem:[], aluguel:[], hotel:[], seguro:[], exp:[], passeio:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
       proxima_acao:'Agendar reunião de onboarding', proxima_data:'',
       log:[{ t:new Date().toISOString(), msg:'Assessoria criada' }],
     }
