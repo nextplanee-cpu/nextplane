@@ -4,67 +4,32 @@ import { Star } from 'lucide-react'
 
 const testimonials = [
   {
-    text: 'Experiência incrível. Joseph e Maria nos acompanharam durante toda a viagem. Era minha primeira viagem e esse suporte foi fundamental. Super recomendo!',
+    text: 'Era minha primeira viagem internacional e eu tava com muito medo de contratar online. Joseph me atendeu no WhatsApp, tirou todas as dúvidas e organizou tudo. Voltei sem nenhum problema.',
     name: 'Jenifer Soares',
-    role: 'Primeira viagem internacional',
+    dest: 'Europa — primeira viagem',
     avatar: 'J',
-    color: '#7C3AED',
+    color: '#F97316',
   },
   {
-    text: 'Sensacional! Eles são muito atenciosos — além de uma viagem incrível, dão suporte e tiram todas as dúvidas pelo WhatsApp. Com certeza a melhor agência!',
-    name: 'Rebeka Gabriela',
-    role: 'Cliente fiel',
+    text: 'Já fizemos a segunda viagem com eles. Preço justo, atendimento rápido e o roteiro exatamente do jeito que a gente pediu. Não troco por outra agência.',
+    name: 'Rosemeri Ribeiro',
+    dest: 'Maldivas & Dubai',
     avatar: 'R',
-    color: '#059669',
+    color: '#F97316',
   },
   {
-    text: 'Já fiz a segunda viagem com eles — experiência internacional incrível, suporte total durante a viagem. Preço justo e acessível. Não troco por outra agência!',
-    name: 'Rosemeri de Fatima Ribeiro',
-    role: 'Segunda viagem com a Next Plane',
-    avatar: 'R',
-    color: '#DC2626',
-  },
-  {
-    text: 'Foi super tranquilo — muito atenciosos e pacientes. Me deram dicas incríveis por ser a primeira vez viajando de avião. Indico para todo mundo!',
+    text: 'Viajei com minha família pra Disney — 5 pessoas, criança pequena, tudo. Eles resolveram passagem, hotel, ingresso e transfer. A gente só foi aproveitar.',
     name: 'Felipe Borges',
-    role: 'Primeira viagem de avião',
+    dest: 'Disney & Orlando',
     avatar: 'F',
-    color: '#1D4ED8',
+    color: '#F97316',
   },
   {
-    text: 'É uma empresa de Deus! Me ajudaram a viajar com passagens em conta para cumprir minha missão de ajudar outras pessoas. Bênçãos sobre essa empresa!',
+    text: 'Precisei de visto com urgência e a Next Plane me ajudou do zero. Me ensinaram tudo, me acompanharam no processo e deu certo. Gratidão enorme.',
     name: 'Kleber Pereira',
-    role: 'Médico Missionário',
+    dest: 'Missão internacional',
     avatar: 'K',
-    color: '#0891B2',
-  },
-  {
-    text: 'Atendimento incrível desde a compra até o check-in — a gente não se preocupa com NADA, só arruma as malas e embarca. Eles desenrolam tudo!',
-    name: 'Ana Helen Ferreira',
-    role: 'Viagem internacional',
-    avatar: 'A',
-    color: '#B45309',
-  },
-  {
-    text: 'Melhor atendimento — ajudou muito em todo o processo e valores incríveis! Recomendo demais.',
-    name: 'Rick Ramos',
-    role: 'Buenos Aires, Argentina',
-    avatar: 'R',
-    color: '#6D28D9',
-  },
-  {
-    text: 'Recomendo — fui muito bem atendido, tive todo suporte até a viagem.',
-    name: 'Edenilsom Borges',
-    role: 'Passagens Aéreas',
-    avatar: 'E',
-    color: '#0F766E',
-  },
-  {
-    text: 'Minha experiência foi maravilhosa. 😍👏',
-    name: 'Mara Brasil',
-    role: 'Destino Internacional',
-    avatar: 'M',
-    color: '#BE185D',
+    color: '#F97316',
   },
 ]
 
@@ -92,15 +57,12 @@ function Card({ t, i }) {
       <Stars />
       <p className="text-white/60 text-[14px] leading-[1.75] flex-1 mb-5">"{t.text}"</p>
       <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-          style={{ background: `${t.color}18`, color: t.color, border: `1px solid ${t.color}25` }}
-        >
+        <div className="w-9 h-9 rounded-full bg-brand/15 border border-brand/25 flex items-center justify-center text-xs font-bold text-brand flex-shrink-0">
           {t.avatar}
         </div>
         <div>
           <p className="text-white text-sm font-semibold leading-tight">{t.name}</p>
-          <p className="text-white/30 text-xs mt-0.5">{t.role}</p>
+          <p className="text-white/30 text-xs mt-0.5">{t.dest}</p>
         </div>
       </div>
     </motion.div>
@@ -116,27 +78,26 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
 
         {/* Header */}
-        <div ref={titleRef} className="mb-14 max-w-2xl">
-          <motion.p
-            initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}}
-            className="text-brand text-[11px] font-bold tracking-[0.28em] uppercase mb-3"
-          >
-            Depoimentos reais
-          </motion.p>
+        <div ref={titleRef} className="mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <motion.h2
             initial={{ opacity: 0, y: 18 }} animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: 0.07 }}
-            className="font-poppins text-4xl sm:text-5xl font-bold text-white leading-[1.1]"
+            className="font-poppins text-3xl sm:text-4xl font-bold text-white leading-[1.1]"
           >
-            Quem viajou com a Next Plane,
-            <br />
-            <span className="text-brand">voltou.</span>{' '}
-            <span className="font-light font-serif italic text-white/50 text-3xl sm:text-4xl">E contou.</span>
+            O que nossos clientes falam
           </motion.h2>
+          <motion.a
+            href="https://g.page/r/nextplane/review"
+            target="_blank" rel="noopener noreferrer"
+            initial={{ opacity: 0 }} animate={inView ? { opacity: 1 } : {}}
+            transition={{ delay: 0.1 }}
+            className="text-brand text-sm font-semibold hover:underline flex-shrink-0"
+          >
+            4.9★ no Google · Ver todos →
+          </motion.a>
         </div>
 
         {/* Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 gap-5">
           {testimonials.map((t, i) => <Card key={t.name + i} t={t} i={i} />)}
         </div>
       </div>

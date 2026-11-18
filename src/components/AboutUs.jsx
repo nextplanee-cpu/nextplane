@@ -51,20 +51,18 @@ export default function AboutUs() {
             </p>
 
             <h2 className="font-poppins text-4xl sm:text-5xl font-bold text-white leading-[1.1] mb-7">
-              Uma família que<br />
-              <span className="text-brand">vive</span>{' '}
-              <span className="font-light font-serif italic text-white/75">para viajar.</span>
+              Somos Joseph e Maria —<br />
+              <span className="text-brand">e viagem é o que a gente faz.</span>
             </h2>
 
             <div className="space-y-5 text-white/55 text-[15px] leading-[1.8] mb-9">
               <p>
-                A Next Plane não nasceu de um escritório. Nasceu de passaportes carimbados,
-                de madrugadas resolvendo imprevisto de cliente, de ver família chegando em
-                casa com histórias que vão contar por anos.
+                A Next Plane começou porque a gente mesmo viajava muito e via como era difícil
+                confiar em alguém de verdade. Sem chatbot, sem call center. Você fala direto
+                com quem vai resolver.
               </p>
               <p>
-                Joseph e Maria cuidam de cada viagem como se fosse a deles. Passagens,
-                hotel, roteiro, documentação — você só arruma a mala.
+                Cuidamos de tudo — passagem, hotel, roteiro, documentação. Você só arruma a mala.
               </p>
             </div>
 

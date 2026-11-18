@@ -27,23 +27,18 @@ export default function WhatsAppCTA() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
-          {/* Label */}
-          <p className="text-white/65 text-[11px] font-bold tracking-[0.28em] uppercase mb-7">
-            Fale com a nossa equipe
-          </p>
-
           {/* Headline */}
           <h2 className="font-poppins text-4xl sm:text-5xl lg:text-[58px] font-bold text-white
                          leading-[1.06] tracking-tight mb-5">
-            Sua próxima viagem<br />
-            <span className="font-light font-serif italic text-white/85">começa numa mensagem.</span>
+            Manda uma mensagem —<br />
+            <span className="text-white/85 font-medium text-3xl sm:text-4xl lg:text-[42px]">a gente responde de verdade.</span>
           </h2>
 
           {/* Subtítulo */}
           <p className="text-white/80 text-base sm:text-[17px] leading-[1.75] mb-10 max-w-[480px] mx-auto">
-            Sem formulário, sem espera. Você manda uma mensagem,
-            a gente responde com um roteiro pensado pra você —
-            de graça, sem compromisso.
+            Sem formulário, sem chatbot. Você fala diretamente com Joseph ou Maria,
+            conta o que tá pensando e a gente monta um roteiro pra você —
+            sem custo nenhum.
           </p>
 
           {/* CTAs */}

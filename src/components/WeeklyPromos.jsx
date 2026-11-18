@@ -34,8 +34,8 @@ export default function WeeklyPromos() {
               Oferta da semana
             </p>
             <h2 className="font-poppins text-2xl sm:text-3xl font-bold text-white leading-tight">
-              Essa semana, tem uma{' '}
-              <span className="font-light font-serif italic text-white/75">oportunidade</span>
+              Oferta da semana —{' '}
+              <span className="text-brand">por tempo limitado</span>
             </h2>
           </div>
           <span className="hidden sm:block text-white/20 text-[11px] tracking-wide">Atualizado semanalmente</span>

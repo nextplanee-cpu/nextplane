@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Navbar       from './components/Navbar'
 import Hero         from './components/Hero'
 import Services     from './components/Services'
-import WeeklyPromos from './components/WeeklyPromos'
 import Destinations from './components/Destinations'
 import AboutUs      from './components/AboutUs'
 import Testimonials from './components/Testimonials'
@@ -25,7 +24,6 @@ function HomePage() {
       <main>
         <Hero />
         <Services />
-        <WeeklyPromos />
         <Destinations />
         <AboutUs />
         <Testimonials />

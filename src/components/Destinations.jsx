@@ -5,60 +5,59 @@ import { waDestino } from '../lib/whatsapp'
 
 const destinations = [
   {
-    // ✅ Verificado: Cinderella Castle — Magic Kingdom, Walt Disney World Orlando
     name:    'Disney & Orlando',
     country: 'Estados Unidos',
     tag:     'Família & Parques',
-    price:   'a partir de R$ 6.000',
+    price:   'R$ 4.800 por pessoa',
+    detail:  'Voo + 7 noites + parques',
     image:   'https://images.unsplash.com/photo-1620563925792-7e08e2be7ef7?auto=format&fit=crop&w=1200&q=90',
   },
   {
-    // ✅ Verificado: Overwater Villa — W Hotel, Maldive Islands
     name:    'Maldivas',
     country: 'Oceano Índico',
     tag:     'Praia & Resort',
-    price:   'a partir de R$ 12.000',
+    price:   'R$ 13.500 por pessoa',
+    detail:  'Voo + 7 noites all-inclusive',
     image:   'https://images.unsplash.com/photo-1602002418209-55d7a55adf42?auto=format&fit=crop&w=1200&q=90',
   },
   {
-    // ✅ Verificado: Torre Eiffel — Paris, France (Anthony Delanoix)
     name:    'Paris',
     country: 'França',
     tag:     'Europa Premium',
-    price:   'a partir de R$ 7.500',
+    price:   'R$ 7.200 por pessoa',
+    detail:  'Voo + 6 noites + seguro viagem',
     image:   'https://images.unsplash.com/photo-1431274172761-fca41d930114?auto=format&fit=crop&w=1200&q=90',
   },
   {
-    // ✅ Verificado: San Carlos de Bariloche — Río Negro, Argentina
+    name:    'Punta Cana',
+    country: 'Rep. Dominicana',
+    tag:     'Praia & All-Inclusive',
+    price:   'R$ 6.900 por pessoa',
+    detail:  'Voo + 7 noites resort 5★',
+    image:   'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=90',
+  },
+  {
     name:    'Bariloche',
     country: 'Argentina',
     tag:     'Neve & Montanha',
-    price:   'a partir de R$ 5.000',
+    price:   'R$ 3.200 por pessoa',
+    detail:  'Voo + 5 noites + transfer',
     image:   'https://images.unsplash.com/photo-1589836106091-4d33bb027708?auto=format&fit=crop&w=1200&q=90',
   },
   {
-    // ✅ Verificado: Sky Costanera — Santiago, Chile
-    name:    'Santiago',
-    country: 'Chile',
-    tag:     'Cultura & Gastronomia',
-    price:   'a partir de R$ 6.000',
-    image:   'https://images.unsplash.com/photo-1566079463188-97d2f1352582?auto=format&fit=crop&w=1200&q=90',
-  },
-  {
-    // Coliseu — Roma, Itália
     name:    'Itália',
     country: 'Europa',
-    tag:     'Arte & Cultura',
-    price:   'a partir de R$ 9.900',
-    // ✅ Verificado: Colosseum — Roma, Italia
+    tag:     'Arte & Gastronomia',
+    price:   'R$ 9.400 por pessoa',
+    detail:  'Voo + 8 noites Roma & Florença',
     image:   'https://images.unsplash.com/photo-1526026697130-3f870884a6e3?auto=format&fit=crop&w=1200&q=90',
   },
   {
-    // ✅ Verificado: Burj Khalifa skyline noturno — Dubai, UAE
     name:    'Dubai',
     country: 'Emirados Árabes',
     tag:     'Luxo & Modernidade',
-    price:   'a partir de R$ 11.000',
+    price:   'R$ 10.800 por pessoa',
+    detail:  'Voo + 6 noites + city tour',
     image:   'https://images.unsplash.com/photo-1753029111752-f12018752cd3?auto=format&fit=crop&w=1200&q=90',
   },
 ]
@@ -219,9 +218,10 @@ export default function Destinations() {
                 <h3 className="font-poppins text-[28px] sm:text-[32px] font-bold text-white leading-tight mb-1">
                   {curr.name}
                 </h3>
-                <p className="text-brand text-sm font-semibold mt-3 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                  {curr.price} · Quero esse roteiro →
-                </p>
+                <div className="mt-3 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
+                  <p className="text-brand text-base font-bold">{curr.price}</p>
+                  <p className="text-white/50 text-xs mt-0.5">{curr.detail} · Quero esse roteiro →</p>
+                </div>
               </div>
 
               {/* Barra de progresso autoplay */}

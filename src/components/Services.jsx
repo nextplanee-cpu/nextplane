@@ -116,28 +116,21 @@ export default function Services() {
 
         {/* Header */}
         <div ref={titleRef} className="mb-12">
-          <motion.p
-            initial={{ opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : {}}
-            className="text-brand text-[11px] font-bold tracking-[0.28em] uppercase mb-3"
-          >
-            O que a gente faz
-          </motion.p>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <motion.h2
               initial={{ opacity: 0, y: 18 }} animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.07 }}
               className="font-poppins text-4xl sm:text-5xl font-bold text-white leading-[1.1]"
             >
-              Para cada tipo de viajante,
-              <br />
-              <span className="text-brand">uma experiência única.</span>
+              Como a gente<br />
+              <span className="text-brand">pode te ajudar?</span>
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }} animate={inView ? { opacity: 1 } : {}}
               transition={{ delay: 0.15 }}
               className="text-white/35 text-sm max-w-[200px] sm:text-right leading-[1.7]"
             >
-              Clique no seu perfil e receba uma proposta personalizada.
+              Clique no seu perfil e receba uma proposta no WhatsApp.
             </motion.p>
           </div>
         </div>
