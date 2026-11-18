@@ -151,7 +151,21 @@ function buildStep(cfg) {
     if (b.kind === 'check') s.checks = cfg.tasks || b.checks.map(t => ({ id:t, t }))
     return s
   }
-  return { k:cfg.k, icon:'📌', name:nome || 'Nova etapa', short:nome || 'Nova etapa', kind:'check', goal:cfg.goal || '', out:'', checks:cfg.tasks || [], custom:true }
+  const base = { k:cfg.k, icon:'📌', name:nome || 'Nova etapa', short:nome || 'Nova etapa', goal:cfg.goal || '', out:'', custom:true }
+  // etapa criada para o cliente: lista de tarefas (padrão) ou itens com status, valor, voucher e anexo (como Trem e Hospedagem)
+  if (cfg.tipo === 'itens') return { ...base, ...ITENS_CUSTOM, checks:[] }
+  return { ...base, kind:'check', checks:cfg.tasks || [] }
+}
+const CUSTOM_ST = ['Pendente','Cotado','Aguardando cliente','Comprado','Voucher anexado']
+const ITENS_CUSTOM = {
+  kind:'items', unit:'concluídos', add:'item', color:'#64748B',
+  statuses:CUSTOM_ST, done:['Comprado','Voucher anexado'],
+  blank:{ nome:'', cidade:'', data:'', hora:'', fornecedor:'', passageiros:'', valor:'', reserva:'', link:'', status:'Pendente' },
+  fields:[
+    { k:'nome', l:'Nome', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
+    { k:'fornecedor', l:'Fornecedor' }, { k:'passageiros', l:'Pessoas', t:'number' },
+    { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Nº reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
+  ],
 }
 const stepsCache = new WeakMap()
 const stepsOf = a => {
@@ -392,7 +406,7 @@ function alertas(a) {
 const fmtDA = d => (d ? d.split('-').reverse().join('/') : '')
 const quando = (d, h, voo) => [fmtDA(d), h, voo].filter(Boolean).join(' · ')
 /* O que aparece para o cliente em cada item (nunca valores) */
-const detalhe = (k, it) => ({
+const detalhe = (k, it) => (({
   aereo: () => ({ titulo:trechoDe(it) || 'Voo', sub:ciaDe(it.cia), campos: idaVolta(it)
     ? [{ l:'Ida', v:quando(it.data, it.horario, it.voo) }, { l:'Volta', v:quando(it.data_volta, it.horario_volta, it.voo_volta) }, { l:'Localizador', v:it.localizador }]
     : [{ l:'Data', v:quando(it.data, it.horario) }, { l:'Voo', v:it.voo }, { l:'Localizador', v:it.localizador }] }),
@@ -414,7 +428,8 @@ const detalhe = (k, it) => ({
     { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] }),
   internet: () => ({ titulo:[it.tipo, it.operadora].filter(Boolean).join(' · ') || 'Internet', sub:it.regiao, campos:[
     { l:'Dados', v:it.dados }, { l:'Ativação', v:fmtDA(it.inicio) }, { l:'Dias', v:it.dias }] }),
-})[k]()
+})[k] || (() => ({ titulo:it.nome || 'Item', sub:[it.cidade, it.fornecedor].filter(Boolean).join(' · '), campos:[
+    { l:'Data', v:quando(it.data, it.hora) }, { l:'Pessoas', v:it.passageiros }, { l:'Reserva', v:it.reserva }] })))()
 const itensDoPortal = (a, s) => {
   if (s.kind === 'items') return (a[s.k] || []).map(it => ({
     ...detalhe(s.k, it), status:it.status || '', ok:s.done.includes(it.status), link:it.link || '',
@@ -1410,7 +1425,7 @@ const IconDel = ({ onClick }) => (
 function StepPanel({ s, a, onChange, mode }) {
   const p = progress(a, s)
   const na = !!a.na?.[s.k]
-  const [edit, setEdit] = useState(!!s.custom && !s.checks.length) // etapa nova já abre para montar as tarefas
+  const [edit, setEdit] = useState(!!s.custom && s.kind === 'check' && !s.checks.length) // etapa nova já abre para montar as tarefas
   return (
     <div style={{ display:'grid', gap:14 }}>
       <Card>
@@ -1550,6 +1565,24 @@ function EditarEtapa({ s, a, onChange }) {
             onChange={e => setCfg(c => ({ ...c, short:e.target.value }))}
             onBlur={() => { if (!String(cfg.short ?? 'x').trim()) setCfg(c => { const { short, ...r } = c; return r }) }}/>
         </div>
+        {s.custom && (
+          <div>
+            <Label>Tipo da etapa</Label>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {[['check', 'Lista de tarefas'], ['itens', 'Itens com status, valor, voucher e anexo']].map(([v, l]) => {
+                const on = (cfg.tipo === 'itens' ? 'itens' : 'check') === v
+                return (
+                  <button key={v} type="button" onClick={() => setCfg(c => ({ ...c, tipo:v }))}
+                    style={{ fontSize:12, padding:'7px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:700,
+                      background:on ? 'rgba(255,255,255,0.07)' : 'transparent', color:on ? T.text : T.muted, border:on ? `1px solid ${T.lineStrong}` : T.borderN }}>{l}</button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize:11, color:T.faint, marginTop:6 }}>
+              {cfg.tipo === 'itens' ? 'Funciona como Trem e Hospedagem: cada item tem status (Pendente, Cotado, Comprado, Voucher anexado), valor, voucher e anexo.' : 'Uma lista de tarefas para marcar. Você pode trocar o tipo depois, sem perder o que já foi lançado.'}
+            </div>
+          </div>
+        )}
         <div>
           <Label>Descrição (objetivo da etapa)</Label>
           <textarea value={cfg.goal ?? s.goal ?? ''} rows={2} placeholder="O que precisa acontecer nesta etapa"
