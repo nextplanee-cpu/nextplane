@@ -5,10 +5,14 @@ import {
   MessageCircle, LogOut, Phone, Mail, MapPin, Calendar,
   TrendingUp, CheckCircle2, AlertCircle, Clock, Filter,
   Megaphone, RefreshCw, Trash2, Briefcase, Plane, Target,
-  Radio, Trophy, Inbox, ShieldCheck, Download, ChevronRight, Database, Map as MapIcon,
+  Radio, Trophy, Inbox, ShieldCheck, Download, ChevronRight, Database, Map as MapIcon, Gauge,
 } from 'lucide-react'
 import Assessorias from './crm/Assessorias'
 import AuthGate from './crm/AuthGate'
+import PipelineDashboard from './crm/PipelineDashboard'
+import {
+  STAGES, STAGE_MAP, PERDIDO, MOTIVOS_PERDA, motivoOf, TEMP_C, stageOf, fmtR, Temp, Stage, BarList,
+} from './crm/shared'
 import {
   T, num, GlobalStyle, Badge, Dot, Card, CardTitle, Btn, IconBtn, Label, Avatar, Bar,
   PageHeader, Kpi, KpiGrid, th, td, Empty, Segmented, Modal, Drawer, inputS,
@@ -18,49 +22,12 @@ import {
   metaStatus, metaSubscribe, encryptOld, fetchAudit,
 } from '../lib/leadsApi'
 
-const STAGES = [
-  { id:0,  name:'Lead Recebido',    color:'#5B8DEF', short:'Recebido'  },
-  { id:1,  name:'Primeiro Contato', color:'#8B5CF6', short:'1º Contato'},
-  { id:2,  name:'Atendimento',      color:'#A78BFA', short:'Atendimento'},
-  { id:5,  name:'Cotação Enviada',  color:'#3B82F6', short:'Cotação'   },
-  { id:6,  name:'Follow-up',        color:'#06B6D4', short:'Follow-up' },
-  { id:8,  name:'Negociação',       color:'#F97316', short:'Negociação'},
-  { id:9,  name:'Aguardando Pgto',  color:'#EAB308', short:'Pgto'      },
-  { id:10, name:'Venda Fechada',    color:'#22C55E', short:'Fechada'   },
-  { id:11, name:'Pós-Venda',        color:'#10B981', short:'Pós-Venda' },
-  { id:12, name:'Perdido',          color:'#EF4444', short:'Perdido'   },
-]
-// ids mantidos p/ compatibilidade com leads salvos; estágios removidos (Briefing, Pesquisa, Follow-up 2) viram o vizinho
-const STAGE_MAP = { 3:2, 4:2, 7:6 }
-const stageOf = id => STAGES.find(s => s.id === id) || STAGES[0]
-const PERDIDO = 12
-
-/* Motivos de perda — lista fixa para dar para comparar e somar nos relatórios */
-const MOTIVOS_PERDA = [
-  { k:'preco',       l:'Preço / orçamento acima do esperado', c:'#EF4444' },
-  { k:'sem_resposta',l:'Não respondeu / sumiu',               c:'#6B7280' },
-  { k:'pesquisando', l:'Só pesquisando / sem data definida',  c:'#F59E0B' },
-  { k:'concorrente', l:'Fechou com outra agência',            c:'#F97316' },
-  { k:'sozinho',     l:'Comprou por conta própria',           c:'#EAB308' },
-  { k:'desistiu',    l:'Desistiu ou adiou a viagem',          c:'#A78BFA' },
-  { k:'fora_perfil', l:'Fora do perfil (orçamento baixo)',    c:'#3B82F6' },
-  { k:'nao_atende',  l:'Destino ou serviço que não atendemos',c:'#06B6D4' },
-  { k:'invalido',    l:'Contato inválido / spam',             c:'#374151' },
-  { k:'outro',       l:'Outro (descrever)',                   c:'#9CA3AF' },
-]
-const motivoOf = k => MOTIVOS_PERDA.find(m => m.k === k)
 const normLeads = list => list.map(l => l.stage in STAGE_MAP ? { ...l, stage: STAGE_MAP[l.stage] } : l)
 
 const TIPOS = ['Internacional','Lua de Mel','Disney','Cruzeiro','Corporativo','Nacional','Europa','América do Sul']
 const ORIGENS = ['WhatsApp','Instagram','Indicação','Meta Ads','Google Ads','ManyChat','Site','TikTok','Parceiros']
-const TEMP_C = { Frio:'#60A5FA', Morno:'#F59E0B', Quente:'#EF4444', VIP:'#D4AF37' }
 
 /* ─── Helpers ────────────────────────────────────────── */
-const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR')}`
-const fmtK = v => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits:1 })} mi` : v >= 1e4 ? `R$ ${Math.round(v / 1e3)} mil` : fmtR(v))
-const Temp = ({ t, small }) => (t ? <Badge color={TEMP_C[t] || T.muted} small={small}>{t}</Badge> : <span style={{ color:T.faint }}>—</span>)
-const Stage = ({ id, small, full }) => { const s = stageOf(id); return <Badge color={s.color} small={small}>{full ? s.name : s.short}</Badge> }
-
 /* Inputs dos formulários do CRM (aceitam props nativas) */
 const Input = ({ label, ...props }) => (
   <div>
@@ -81,27 +48,6 @@ const META_PESSOAS = [['1','1 pessoa'],['2','2 pessoas'],['3-4','3 ou 4 pessoas'
 const META_DIAS    = [['ate10','Até 10 dias'],['11-15','11 a 15 dias'],['15+','Acima de 15 dias']]
 const META_INVEST  = [['ate20','Até R$ 20 mil'],['20-30','R$ 20–30 mil'],['30-40','R$ 30–40 mil'],['40+','Acima de R$ 40 mil']]
 const labelOf = (opts, v) => (opts.find(o => o[0] === v) || [v, v || '—'])[1]
-
-/* Lista de barras horizontais (rótulo, número, % e barra fina) */
-const BarList = ({ rows, color = 'rgba(212,175,55,0.75)', total }) => {
-  const sum = total ?? rows.reduce((a, r) => a + r.n, 0)
-  return rows.map(r => {
-    const pct = sum ? r.n / sum : 0
-    return (
-      <div key={r.k ?? r.l} style={{ marginBottom:11 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginBottom:5, fontSize:12 }}>
-          <span style={{ color:T.muted, display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
-            {r.c && <Dot color={r.c} size={6}/>}<span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.l}</span>
-          </span>
-          <span style={{ color:T.text, fontWeight:600, whiteSpace:'nowrap', ...num }}>
-            {r.v ?? r.n}{r.v === undefined && <span style={{ color:T.faint, fontWeight:400 }}> · {Math.round(pct * 100)}%</span>}
-          </span>
-        </div>
-        <Bar pct={r.p ?? pct} color={color}/>
-      </div>
-    )
-  })
-}
 
 /* Barras horizontais de distribuição (BI) */
 const DistBars = ({ title, icon, opts, leads, field, color = T.gold }) => (
@@ -337,6 +283,7 @@ function CRMApp({ user, onLogout }) {
   const NAV = [
     { grupo:'Vendas', itens:[
       { id:'dashboard',   icon:LayoutDashboard, label:'Visão geral'  },
+      { id:'funil',       icon:Gauge,           label:'Dashboard do funil' },
       { id:'pipeline',    icon:GitBranch,       label:'Pipeline'     },
       { id:'leads',       icon:Users,           label:'Leads'        },
       { id:'meta',        icon:Megaphone,       label:'Leads Meta'   },
@@ -567,6 +514,10 @@ function CRMApp({ user, onLogout }) {
     const fila   = metaAll.filter(l => l.stage === 0)
       .sort((a, b) => (b.score || 0) - (a.score || 0) || new Date(a.createdAt) - new Date(b.createdAt))
     const potencial = meta.reduce((a, b) => a + b.value, 0)
+    // Há leads vindos de formulário (respostas de destino/pessoas/dias/investimento)? Se não, escondemos esses gráficos.
+    const temForm = metaAll.some(l => l.investimento || l.pessoas || l.dias || (Array.isArray(l.respostas) && l.respostas.length))
+    const noFunil = STAGES.map(st => ({ k:st.id, l:st.name, c:st.color, n:meta.filter(l => l.stage === st.id).length }))
+    const abrirNovoMeta = () => { setNewLead(p => ({ ...p, source:'Meta Ads' })); setShowNew(true) }
 
     const campanhas = Object.values(meta.reduce((acc, l) => {
       const k = `${l.campaign_name || '—'}||${l.ad_name || '—'}`
@@ -582,20 +533,34 @@ function CRMApp({ user, onLogout }) {
     if (m && m.missing?.length) status = `Falta configurar na Vercel: ${m.missing.join(', ')}`
     else if (m && !m.ok) status = `Erro: ${m.error}`
     else if (m && !m.subscribed) status = `Página "${m.page}" encontrada, mas ainda não está enviando leads para o CRM.`
-    else if (ready) status = `Página "${m.page}" conectada. Os leads do formulário entram automaticamente.`
+    else if (ready) status = temForm
+      ? `Página "${m.page}" conectada. Os leads do formulário entram automaticamente.`
+      : `Página "${m.page}" conectada ao webhook de formulários, mas nenhum lead chegou por formulário.`
 
     return (
       <div>
-        <PageHeader title="Leads Meta Ads" sub='Formulário "Assessoria Viagem" · entrada automática pelo webhook da Meta'>
+        <PageHeader title="Leads Meta Ads" sub={temForm ? 'Leads com origem Meta Ads · formulário (webhook da Meta) e conversas de WhatsApp' : 'Leads com origem Meta Ads · campanhas que levam para conversa no WhatsApp'}>
           <Segmented value={metaPeriod} onChange={setMetaPeriod} opts={[['7','7 dias'],['30','30 dias'],['all','Tudo']]}/>
           <Btn outline onClick={() => loadCloud()} disabled={syncing}><RefreshCw size={13}/> {syncing ? 'Atualizando…' : 'Atualizar'}</Btn>
+          <Btn onClick={abrirNovoMeta}><Plus size={13}/> Novo lead Meta Ads</Btn>
         </PageHeader>
+
+        {!temForm && (
+          <Card style={{ marginBottom:12, padding:'12px 16px', display:'flex', gap:12, alignItems:'flex-start' }}>
+            <Inbox size={18} color={T.muted} style={{ flexShrink:0, marginTop:1 }}/>
+            <div style={{ fontSize:13, color:T.muted, lineHeight:1.55 }}>
+              <b style={{ color:T.text }}>As campanhas atuais (Engajamento → mensagens no WhatsApp) não geram lead de formulário.</b>{' '}
+              Para os contatos das campanhas aparecerem aqui e no <button onClick={() => setView('funil')} style={{ background:'none', border:'none', padding:0, color:T.gold, cursor:'pointer', font:'inherit' }}>Dashboard do funil</button>,
+              cadastre cada conversa em <b style={{ color:T.text }}>Novo lead</b> com a origem <b style={{ color:T.text }}>Meta Ads</b>. O webhook do formulário continua ligado e volta a funcionar sozinho se você usar formulário de novo.
+            </div>
+          </Card>
+        )}
 
         <Card style={{ marginBottom:12, padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
             <Dot color={ready ? T.success : m ? T.warn : T.faint} size={8}/>
             <div>
-              <div style={{ fontSize:13, fontWeight:600 }}>{ready ? 'Integração ativa' : 'Integração Meta'}</div>
+              <div style={{ fontSize:13, fontWeight:600 }}>{ready ? 'Integração do formulário ativa' : 'Integração do formulário Meta'}</div>
               <div style={{ fontSize:12, color:T.muted }}>{status}</div>
             </div>
           </div>
@@ -616,10 +581,16 @@ function CRMApp({ user, onLogout }) {
         <div style={{ marginBottom:12 }}><DailyBars leads={meta} days={metaPeriod === '7' ? 7 : 14}/></div>
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:12, marginBottom:12 }}>
-          <DistBars title="Destino"        icon={Plane}    opts={META_DEST}    leads={meta} field="dest"/>
-          <DistBars title="Investimento"   icon={TrendingUp} opts={META_INVEST} leads={meta} field="investimento"/>
-          <DistBars title="Pessoas"        icon={Users}    opts={META_PESSOAS} leads={meta} field="pessoas"/>
-          <DistBars title="Dias de viagem" icon={Calendar} opts={META_DIAS}    leads={meta} field="dias"/>
+          <Card>
+            <CardTitle icon={GitBranch} right={<Btn ghost small onClick={() => setView('funil')}>Dashboard do funil <ChevronRight size={13}/></Btn>}>Onde estão no funil</CardTitle>
+            <BarList total={meta.length} rows={noFunil}/>
+          </Card>
+          {temForm && <>
+            <DistBars title="Destino"        icon={Plane}    opts={META_DEST}    leads={meta} field="dest"/>
+            <DistBars title="Investimento"   icon={TrendingUp} opts={META_INVEST} leads={meta} field="investimento"/>
+            <DistBars title="Pessoas"        icon={Users}    opts={META_PESSOAS} leads={meta} field="pessoas"/>
+            <DistBars title="Dias de viagem" icon={Calendar} opts={META_DIAS}    leads={meta} field="dias"/>
+          </>}
           <Card>
             <CardTitle icon={Target}>Temperatura</CardTitle>
             <BarList total={meta.length} rows={['VIP','Quente','Morno','Frio'].map(t => ({ k:t, l:t, c:TEMP_C[t], n:meta.filter(l => l.temp === t).length }))}/>
@@ -628,11 +599,11 @@ function CRMApp({ user, onLogout }) {
 
         <Card style={{ marginBottom:12, padding:0, overflow:'hidden' }}>
           <div style={{ padding:'16px 18px 2px' }}>
-            <CardTitle icon={Phone} right={<span style={{ fontSize:12, color:T.faint }}>Prometido no formulário: contato em até 24h</span>}>Fila de atendimento · por score</CardTitle>
+            <CardTitle icon={Phone} right={<span style={{ fontSize:12, color:T.faint }}>Meta: responder em até 24h</span>}>Fila de atendimento · por score</CardTitle>
           </div>
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', minWidth:820 }}>
-              <thead><tr>{['Lead','Destino','Pessoas','Dias','Investimento','Temp.','Chegou',''].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+              <thead><tr>{['Lead','Destino',...(temForm ? ['Pessoas','Dias','Investimento'] : ['Valor']),'Temp.','Chegou',''].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
               <tbody>
                 {fila.map(l => {
                   const horas = Math.floor((Date.now() - new Date(l.createdAt)) / 36e5)
@@ -644,13 +615,15 @@ function CRMApp({ user, onLogout }) {
                         <div style={{ fontSize:12, color:T.muted }}>{l.phone || 'sem telefone'}</div>
                       </td>
                       <td style={td}>{l.dest || '—'}</td>
-                      <td style={td}>{labelOf(META_PESSOAS, l.pessoas)}</td>
-                      <td style={td}>{labelOf(META_DIAS, l.dias)}</td>
-                      <td style={td}>{labelOf(META_INVEST, l.investimento)}</td>
+                      {temForm ? <>
+                        <td style={td}>{labelOf(META_PESSOAS, l.pessoas)}</td>
+                        <td style={td}>{labelOf(META_DIAS, l.dias)}</td>
+                        <td style={td}>{labelOf(META_INVEST, l.investimento)}</td>
+                      </> : <td style={{ ...td, ...num }}>{l.value ? fmtR(l.value) : '—'}</td>}
                       <td style={td}><Temp t={l.temp} small/></td>
                       <td style={{ ...td, ...num }}>
                         <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-                          <Dot color={horas >= 24 ? T.err : horas >= 1 ? T.warn : T.success} size={6}/>{horas < 1 ? 'agora' : `há ${horas}h`}
+                          <Dot color={horas >= 24 ? T.err : horas >= 1 ? T.warn : T.success} size={6}/>{horas < 1 ? 'agora' : horas < 48 ? `há ${horas}h` : `há ${Math.floor(horas / 24)} dias`}
                         </span>
                       </td>
                       <td style={td} onClick={e => e.stopPropagation()}>
@@ -668,7 +641,7 @@ function CRMApp({ user, onLogout }) {
           </div>
         </Card>
 
-        <Card style={{ padding:0, overflow:'hidden' }}>
+        {campanhas.some(c => c.camp !== '—') && <Card style={{ padding:0, overflow:'hidden' }}>
           <div style={{ padding:'16px 18px 2px' }}><CardTitle icon={Megaphone}>Por campanha e anúncio</CardTitle></div>
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', minWidth:620 }}>
@@ -687,7 +660,7 @@ function CRMApp({ user, onLogout }) {
             </table>
             {!campanhas.length && <Empty>Sem leads do Meta no período.</Empty>}
           </div>
-        </Card>
+        </Card>}
       </div>
     )
   }
@@ -931,6 +904,7 @@ CREATE TABLE activities (
 
   const VIEWS = {
     dashboard:   <ViewDashboard/>,
+    funil:       <PipelineDashboard leads={leads} onOpenLead={setSelected} onGoPipeline={() => setView('pipeline')} onRefresh={() => loadCloud()} syncing={syncing}/>,
     pipeline:    <ViewPipeline/>,
     leads:       <ViewLeads/>,
     meta:        <ViewMeta/>,
