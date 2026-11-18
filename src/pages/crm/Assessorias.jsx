@@ -1,7 +1,8 @@
 /**
  * Next Plane CRM — Gestão de Assessorias
- * Cada viagem contratada vira uma ficha com 9 etapas operacionais,
- * checklists, itens (aéreo, hotéis, seguro, ingressos e trem, internet), roteiro dia a dia, alertas e templates.
+ * Cada viagem contratada vira uma ficha com etapas operacionais (modelo padrão copiado para o cliente e
+ * editável só nele: adicionar, renomear, remover, reordenar etapas e tarefas), checklists,
+ * itens (aéreo, hotéis, seguro, ingressos, internet), roteiro dia a dia, alertas e templates.
  * Dados: "Só neste navegador" (localStorage) ou "Nuvem" (/api/assessorias).
  */
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -10,7 +11,7 @@ import {
   Calendar, Users, Plane, CheckCircle2, ExternalLink, Link2, Paperclip, FileText,
   Handshake, Compass, BedDouble, ShieldCheck, Ticket, Wifi, CalendarDays, PhoneCall, TrainFront, Car, Ban, RotateCcw,
   Circle, MinusCircle, Target, FolderOpen, History, NotebookPen, MessageSquareText, Briefcase,
-  LayoutList, User, Settings, Wallet, KeyRound,
+  LayoutList, User, Settings, Wallet, KeyRound, TreePalm, GripVertical, Pencil, ListChecks,
 } from 'lucide-react'
 import {
   fetchAssessorias, createAssessoria, saveAssessoria, removeAssessoria, waText, portalLink,
@@ -29,8 +30,9 @@ import {
 /* Ícone de linha de cada etapa (a interface do CRM não usa emoji; o link do cliente usa s.icon) */
 const STEP_ICON = {
   onboarding:Handshake, rota:Compass, aereo:Plane, hotel:BedDouble, seguro:ShieldCheck,
-  exp:Ticket, internet:Wifi, roteiro:CalendarDays, previagem:Users, trem:TrainFront, aluguel:Car,
+  exp:Ticket, passeio:TreePalm, internet:Wifi, roteiro:CalendarDays, previagem:Users, trem:TrainFront, aluguel:Car,
 }
+const iconOf = k => STEP_ICON[k] || ListChecks
 
 /* ─── Etapas ─────────────────────────────────────────── */
 const AEREO_ST    = ['Pendente','Em pesquisa','Opções enviadas','Aguardando cliente','Emitido']
@@ -41,7 +43,8 @@ const INTERNET_ST = ['Pendente','Cotado','Comprado','Enviado ao cliente']
 const TREM_ST     = ['Pendente','Cotado','Aguardando cliente','Comprado','Bilhete anexado']
 const ALUGUEL_ST  = ['Pendente','Cotado','Aguardando cliente','Reservado','Voucher anexado']
 
-const STEPS = [
+/* Etapas do modelo padrão (cada cliente recebe uma cópia editável — ver defaultEtapas/stepsOf) */
+const BASE_STEPS = [
   { k:'onboarding', icon:'🟡', name:'Onboarding', short:'Onboarding', color:'#F59E0B', kind:'check',
     goal:'Entender completamente a viagem.', out:'Briefing completo para começar a montar a viagem.',
     checks:['Reunião realizada','Perfil dos viajantes','Objetivo da viagem','Orçamento','Datas','Destinos desejados','Preferências','Restrições','Documentos e dados dos viajantes'] },
@@ -103,6 +106,9 @@ const STEPS = [
       { k:'nome', l:'Nome', ph:'Museu do Louvre', w:2 }, { k:'cidade', l:'Cidade' }, { k:'data', l:'Data', t:'date' }, { k:'hora', l:'Horário', t:'time' },
       { k:'passageiros', l:'Pessoas', t:'number' }, { k:'valor', l:'Valor', t:'money' }, { k:'reserva', l:'Reserva' }, { k:'link', l:'Voucher (link)', ph:'https://', w:2 },
     ] },
+  { k:'passeio', icon:'🏝️', name:'Passeios e experiências', short:'Passeio', color:'#F59E0B', kind:'check',
+    goal:'Escolher e reservar os passeios e experiências da viagem.', out:'Passeios aprovados, reservados e com voucher na mão do cliente.',
+    checks:['Interesses e perfil de passeios levantados','Passeios pesquisados por cidade','Opções enviadas ao cliente','Cliente aprovou os passeios','Passeios reservados ou comprados','Vouchers enviados ao cliente'] },
   { k:'internet', icon:'📶', name:'Internet', short:'Internet', color:'#0EA5E9', kind:'items', unit:'comprados', add:'chip / eSIM',
     statuses:INTERNET_ST, done:['Comprado','Enviado ao cliente'], blank:{ tipo:'eSIM', operadora:'', regiao:'', dados:'', inicio:'', dias:'', valor:'', link:'', status:'Pendente' },
     fields:[
@@ -117,8 +123,36 @@ const STEPS = [
     goal:'Alinhar tudo com o cliente antes do embarque.', out:'Cliente pronto para viajar.',
     checks:['Reunião agendada','Roteiro final revisado com o cliente','Voos e check-in','Trens e aluguel de veículo conferidos','Hospedagens conferidas','Seguro viagem conferido','Ingressos conferidos','Internet / eSIM pronto','Documentação (passaporte / visto)','Bagagem e clima','Dinheiro e cartões','Dúvidas do cliente','Reunião realizada'] },
 ]
-const STEP = Object.fromEntries(STEPS.map(s => [s.k, s]))
-const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','internet']
+const STEP = Object.fromEntries(BASE_STEPS.map(s => [s.k, s]))
+const EMISSAO = ['aereo','trem','aluguel','hotel','seguro','exp','passeio','internet']
+
+/* ─── Etapas de cada cliente ──────────────────────────────
+   Cada ficha guarda a própria lista em `a.etapas` (cópia do modelo padrão, ajustada só nela):
+     { k, short?, goal?, tasks?:[{id,t}] }  — etapa do modelo; só o que foi personalizado
+     { k:'c_xxxx', short, goal, tasks }      — etapa criada para o cliente
+   O check de cada tarefa fica em a.checks[etapa][id]. No modelo, o id da tarefa é o próprio texto
+   (igual ao que as fichas antigas já gravaram), então ninguém perde o que já marcou. */
+const defaultEtapas = () => BASE_STEPS.map(b => (b.kind === 'check' ? { k:b.k, tasks:b.checks.map(t => ({ id:t, t })) } : { k:b.k }))
+const DEFAULT_ETAPAS = defaultEtapas()
+function buildStep(cfg) {
+  const b = STEP[cfg.k]
+  const nome = String(cfg.short || '').trim()
+  if (b) {
+    const s = { ...b }
+    if (nome) { s.short = nome; s.name = nome }
+    if (cfg.goal != null) s.goal = cfg.goal
+    if (b.kind === 'check') s.checks = cfg.tasks || b.checks.map(t => ({ id:t, t }))
+    return s
+  }
+  return { k:cfg.k, icon:'📌', name:nome || 'Nova etapa', short:nome || 'Nova etapa', kind:'check', goal:cfg.goal || '', out:'', checks:cfg.tasks || [], custom:true }
+}
+const stepsCache = new WeakMap()
+const stepsOf = a => {
+  const cfg = Array.isArray(a?.etapas) ? a.etapas : DEFAULT_ETAPAS
+  let r = stepsCache.get(cfg)
+  if (!r) { r = cfg.filter(c => c && c.k).map(buildStep); stepsCache.set(cfg, r) }
+  return r
+}
 /* Financeiro: lucro que você tem vendendo cada etapa (interno)
    e economia que o cliente teve com a assessoria (aparece no link do cliente) */
 const LUCRO_ETAPAS    = ['aereo','hotel','trem','aluguel','seguro','exp','internet']
@@ -176,7 +210,9 @@ const migrate = a => {
   const conserta = v => (typeof v === 'number' && pontoDeMilhar(v) ? Math.round(v * 1000) : v)
   const consertaObj = o => (o ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, conserta(v)])) : o)
   a = { ...a, valor:conserta(a.valor), lucro:consertaObj(a.lucro), economia:consertaObj(a.economia) }
-  STEPS.filter(s => s.kind === 'items').forEach(s => {
+  // fichas anteriores às etapas editáveis recebem a cópia do modelo padrão (já com "Passeio"); progresso intacto
+  if (!Array.isArray(a.etapas)) a = { ...a, etapas: defaultEtapas() }
+  BASE_STEPS.filter(s => s.kind === 'items').forEach(s => {
     if ((a[s.k] || []).some(it => conserta(it.valor) !== it.valor)) a = { ...a, [s.k]: a[s.k].map(it => ({ ...it, valor:conserta(it.valor) })) }
   })
   return a
@@ -258,6 +294,10 @@ const TEMPLATES = {
     ['Sugestões de ingressos', '{primeiro_nome}, separei algumas experiências que combinam com o perfil de vocês em {destino}:\n\n[sugestões]\n\nQuais querem incluir?'],
     ['Confirmação de ingressos', '{primeiro_nome}, ingressos comprados ✅ Os vouchers já estão organizados para a viagem.'],
   ],
+  passeio: [
+    ['Sugestões de passeios', '{primeiro_nome}, separei alguns passeios e experiências que combinam com o perfil de vocês em {destino}:\n\n[sugestões]\n\nQuais querem incluir no roteiro?'],
+    ['Confirmação de passeios', '{primeiro_nome}, passeios reservados ✅ Os vouchers já estão organizados por data para a viagem.'],
+  ],
   internet: [
     ['Orientação de eSIM', '{primeiro_nome}, seu eSIM para {destino} está pronto 📶\n\n1. Confira se o celular aceita eSIM\n2. Instale pelo QR code ainda no Brasil, com Wi-Fi\n3. Só ative a linha ao chegar\n4. Ligue o roaming de dados no eSIM\n\nQualquer dúvida me chama!'],
   ],
@@ -285,8 +325,9 @@ const addMonths = (d, m) => { const x = new Date(`${d}T00:00`); x.setMonth(x.get
 function progress(a, s) {
   if (a.na?.[s.k]) return { na:true, done:0, total:0, pct:1, complete:true }
   if (s.kind === 'check') {
-    const done = s.checks.filter(c => a.checks?.[s.k]?.[c]).length
-    return { done, total:s.checks.length, pct:done / s.checks.length, complete:done === s.checks.length }
+    const total = s.checks.length
+    const done = s.checks.filter(c => a.checks?.[s.k]?.[c.id]).length
+    return { done, total, pct:total ? done / total : 0, complete:total > 0 && done === total }
   }
   const items = a[s.k] || []
   const done = items.filter(i => s.done.includes(i.status)).length
@@ -310,24 +351,25 @@ const StatusIcon = ({ p, current }) => {
 }
 /* Trilha de progresso das 9 etapas (lista de assessorias) */
 const StepTrack = ({ a }) => (
-  <div style={{ display:'flex', gap:3 }} title={STEPS.map(s => `${s.short}: ${situacao(progress(a, s)).l}`).join('\n')}>
-    {STEPS.map(s => {
+  <div style={{ display:'flex', gap:3 }} title={stepsOf(a).map(s => `${s.short}: ${situacao(progress(a, s)).l}`).join('\n')}>
+    {stepsOf(a).map(s => {
       const p = progress(a, s)
       return <span key={s.k} style={{ width:14, height:6, borderRadius:2, background:situacao(p).c,
         border:p.na ? `1px dashed ${T.lineStrong}` : 'none' }}/>
     })}
   </div>
 )
-const currentStep = a => STEPS.find(s => !progress(a, s).complete) || null
+const currentStep = a => stepsOf(a).find(s => !progress(a, s).complete) || null
 
 function alertas(a) {
   if (!ATIVA(a)) return []
   const out = []
   const dias = daysTo(a.inicio)
-  const pend = EMISSAO.filter(k => !progress(a, STEP[k]).complete)
+  const porK = Object.fromEntries(stepsOf(a).map(s => [s.k, s]))
+  const pend = EMISSAO.filter(k => porK[k] && !progress(a, porK[k]).complete)
   if (dias !== null && dias >= 0 && dias <= 30 && pend.length)
-    out.push(`Embarque em ${dias}d com pendências: ${pend.map(k => STEP[k].short).join(', ')}`)
-  if (dias !== null && dias >= 0 && dias <= 7 && !progress(a, STEP.previagem).complete)
+    out.push(`Embarque em ${dias}d com pendências: ${pend.map(k => porK[k].short).join(', ')}`)
+  if (dias !== null && dias >= 0 && dias <= 7 && porK.previagem && !progress(a, porK.previagem).complete)
     out.push('Reunião final ainda não realizada')
   const volta = a.fim || a.inicio
   if (volta) (a.passageiros || []).forEach(p => {
@@ -383,7 +425,7 @@ function portalView(a) {
   return {
     cliente: primeiroNome(a.cliente),
     destino: a.destino || '', origem: a.origem || '', inicio: a.inicio || '', fim: a.fim || '', viajantes: a.viajantes || '',
-    etapas: STEPS.filter(s => !a.na?.[s.k]).map(s => {
+    etapas: stepsOf(a).filter(s => !a.na?.[s.k]).map(s => {
       const p = progress(a, s)
       return { k:s.k, nome:s.short, icon:s.icon, estado:p.complete ? 'feito' : s.k === atual?.k ? 'atual' : 'pendente',
         done:p.done, total:p.total, unit:s.kind === 'items' ? s.unit : 'itens', goal:s.goal || '', itens:itensDoPortal(a, s) }
@@ -411,8 +453,8 @@ function proximoPasso(a) {
     if (!it) return { etapa:s.short, acao:`Preparar as opções de ${s.short.toLowerCase()}`, detalhe:'Em preparação pela nossa equipe' }
     return { etapa:s.short, acao:detalhe(s.k, it).titulo, detalhe:STATUS_CLIENTE[it.status] || it.status }
   }
-  const falta = s.checks.find(c => !a.checks?.[s.k]?.[c])
-  return { etapa:s.short, acao:falta || s.name, detalhe:s.goal || '' }
+  const falta = s.checks.find(c => !a.checks?.[s.k]?.[c.id])
+  return { etapa:s.short, acao:falta?.t || s.name, detalhe:s.goal || '' }
 }
 
 function fillTemplate(txt, a) {
@@ -538,9 +580,11 @@ export default function Assessorias({ mode = 'local' }) {
   /* Carrega conforme o modo (navegador x nuvem) */
   const loadCloud = async () => {
     try {
-      const items = (await fetchAssessorias()).map(migrate)
+      const brutas = await fetchAssessorias()
+      const items = brutas.map(migrate)
       setStore({ mode:'cloud', items }); setErr('')
-      syncPortais(items)
+      // fichas antigas sem lista de etapas: grava a cópia do modelo padrão (com "Passeio") no banco
+      syncPortais(items, new Set(brutas.filter(r => !Array.isArray(r.etapas)).map(r => r.id)))
     }
     catch (e) { setErr(e.message === 'table_missing' ? 'table_missing' : e.status === 401 ? 'Chave de acesso inválida.' : 'Não foi possível carregar as assessorias da nuvem.') }
   }
@@ -548,11 +592,12 @@ export default function Assessorias({ mode = 'local' }) {
   /* Link do cliente sempre em dia: se o que o cliente vê ficou diferente do que a ficha
      gera hoje (ficha antiga, etapas novas, migração), regrava sozinho — sem esperar uma edição */
   const semData = v => JSON.stringify({ ...(v || {}), atualizado:undefined })
-  const syncPortais = items => items.forEach(a => {
-    if (!portalOn(a) || timers.current[a.id]) return
-    const view = portalView(a)
-    if (semData(view) === semData(a.portal_view)) return
-    const next = { ...a, portal_view:view }
+  const syncPortais = (items, migradas = new Set()) => items.forEach(a => {
+    if (timers.current[a.id]) return
+    const view = portalOn(a) ? portalView(a) : null
+    const velho = view && semData(view) !== semData(a.portal_view)
+    if (!velho && !migradas.has(a.id)) return
+    const next = velho ? { ...a, portal_view:view } : a
     setStore(prev => ({ ...prev, items: prev.items.map(x => x.id === a.id ? next : x) }))
     saveAssessoria(next).catch(() => {})
   })
@@ -579,7 +624,7 @@ export default function Assessorias({ mode = 'local' }) {
       if (a.id !== id) return a
       const next = fn(a)
       const log = [...(next.log || [])]
-      STEPS.forEach(s => {
+      stepsOf(next).forEach(s => {
         if (!progress(a, s).complete && progress(next, s).complete && !next.na?.[s.k])
           log.unshift({ t: new Date().toISOString(), msg:`${s.short} concluída` })
       })
@@ -600,7 +645,7 @@ export default function Assessorias({ mode = 'local' }) {
 
   const create = async form => {
     const base = {
-      ...form, status:'andamento', checks:{}, na:{}, aereo:[], trem:[], aluguel:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
+      ...form, status:'andamento', checks:{}, na:{}, etapas:defaultEtapas(), aereo:[], trem:[], aluguel:[], hotel:[], seguro:[], exp:[], internet:[], roteiro_dias:[], passageiros: form.passageiros || [],
       proxima_acao:'Agendar reunião de onboarding', proxima_data:'',
       log:[{ t:new Date().toISOString(), msg:'Assessoria criada' }],
     }
@@ -734,7 +779,7 @@ function Overview({ list, onOpen, onNew, mode }) {
                   const st = currentStep(a)
                   const al = alertas(a)
                   const dias = daysTo(a.inicio)
-                  const feitas = STEPS.filter(s => progress(a, s).complete).length
+                  const feitas = stepsOf(a).filter(s => progress(a, s).complete).length
                   return (
                     <tr key={a.id} onClick={() => onOpen(a.id)} className="crm-row" style={{ cursor:'pointer' }}>
                       <td style={td}>
@@ -751,12 +796,12 @@ function Overview({ list, onOpen, onNew, mode }) {
                       </td>
                       <td style={td}>
                         {st ? <span style={{ display:'inline-flex', alignItems:'center', gap:7 }}>
-                          {(() => { const I = STEP_ICON[st.k]; return <I size={14} color={T.muted} strokeWidth={1.8}/> })()}{st.short}
+                          {(() => { const I = iconOf(st.k); return <I size={14} color={T.muted} strokeWidth={1.8}/> })()}{st.short}
                         </span> : <Badge color={T.success}>Tudo concluído</Badge>}
                       </td>
                       <td style={td}>
                         <StepTrack a={a}/>
-                        <div style={{ fontSize:11, color:T.faint, marginTop:5, ...num }}>{feitas} de {STEPS.length} etapas</div>
+                        <div style={{ fontSize:11, color:T.faint, marginTop:5, ...num }}>{feitas} de {stepsOf(a).length} etapas</div>
                       </td>
                       <td style={{ ...td, ...num, whiteSpace:'nowrap' }}>{fmtR(margemTotal(a))}</td>
                       <td style={td}>{a.responsavel || '—'}</td>
@@ -778,6 +823,32 @@ function Overview({ list, onOpen, onNew, mode }) {
   )
 }
 
+/* Arrastar para reordenar (HTML5): o ícone de alça inicia o arraste, a linha recebe o drop */
+function useReorder(onMove) {
+  const [drag, setDrag] = useState(null)
+  const [over, setOver] = useState(null)
+  const fim = () => { setDrag(null); setOver(null) }
+  return {
+    drag, over,
+    handle: i => ({
+      draggable: true,
+      onDragStart: e => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', String(i))
+        const row = e.currentTarget.closest('[data-row]')
+        if (row) e.dataTransfer.setDragImage(row, 14, 14)
+        setDrag(i)
+      },
+      onDragEnd: fim,
+    }),
+    row: i => ({
+      'data-row': true,
+      onDragOver: e => { if (drag == null) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== i) setOver(i) },
+      onDrop: e => { e.preventDefault(); if (drag != null && drag !== i) onMove(drag, i); fim() },
+    }),
+  }
+}
+
 /* ════════════════════════════════════════════════════ */
 /*  FICHA DA ASSESSORIA                                 */
 /* ════════════════════════════════════════════════════ */
@@ -787,7 +858,36 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
   const al = alertas(a)
   const dias = daysTo(a.inicio)
   const st = currentStep(a)
-  const feitas = STEPS.filter(s => progress(a, s).complete).length
+  const steps = stepsOf(a)
+  const feitas = steps.filter(s => progress(a, s).complete).length
+  const cur = steps.find(s => s.k === tab)
+
+  /* ── Estrutura de etapas só deste cliente (adicionar, renomear, remover, reordenar) ── */
+  const [editEtapas, setEditEtapas] = useState(false)
+  const cfgDe = k => (Array.isArray(a.etapas) ? a.etapas : DEFAULT_ETAPAS).find(c => c.k === k) || {}
+  const setEtapas = fn => onChange(x => ({ ...x, etapas: fn(Array.isArray(x.etapas) ? x.etapas : defaultEtapas()) }))
+  const mover = (de, para) => setEtapas(l => { const c = [...l]; const [m] = c.splice(de, 1); c.splice(para, 0, m); return c })
+  const dnd = useReorder(mover)
+  const renomear = (k, v) => setEtapas(l => l.map(c => c.k === k ? { ...c, short:v } : c))
+  const fimRename = k => { if (!String(cfgDe(k).short ?? 'x').trim()) setEtapas(l => l.map(c => { if (c.k !== k) return c; const { short, ...r } = c; return r })) }
+  const remover = s => {
+    if (!window.confirm(`Remover a etapa "${s.short}" só desta assessoria?\n\nOs dados que já foram lançados nela ficam guardados — se você reativar a etapa, eles voltam.`)) return
+    setEtapas(l => l.filter(c => c.k !== s.k))
+    if (tab === s.k) setTab('geral')
+  }
+  const adicionar = () => { const k = `c_${uid()}`; setEtapas(l => [...l, { k, short:'Nova etapa', goal:'', tasks:[] }]); setTab(k); setEditEtapas(false) }
+  const removidas = BASE_STEPS.filter(b => !steps.some(s => s.k === b.k))
+  const restaurar = b => setEtapas(l => {
+    const ordem = BASE_STEPS.map(x => x.k)
+    const base = defaultEtapas().find(c => c.k === b.k)
+    const prox = l.findIndex(c => ordem.indexOf(c.k) > ordem.indexOf(b.k))
+    const c = [...l]; c.splice(prox < 0 ? c.length : prox, 0, base); return c
+  })
+  const restaurarPadrao = () => {
+    if (!window.confirm('Voltar às etapas e tarefas do modelo padrão para este cliente?\n\nEtapas criadas só para ele e tarefas que você mudou serão descartadas. O que já foi marcado nas tarefas do modelo continua marcado.')) return
+    onChange(x => ({ ...x, etapas: defaultEtapas() }))
+    if (tab !== 'geral' && tab !== 'pax' && tab !== 'fin' && !DEFAULT_ETAPAS.some(c => c.k === tab)) setTab('geral')
+  }
 
   return (
     <div>
@@ -837,21 +937,67 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
           <StepBtn active={tab === 'fin'} onClick={() => setTab('fin')} icon={<Wallet size={16} color={T.muted} strokeWidth={1.8}/>} name="Financeiro"
             sub={fmtR(margemTotal(a))}/>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 10px 6px', fontSize:11, fontWeight:600, color:T.faint, letterSpacing:'0.4px', textTransform:'uppercase' }}>
-            <span>Etapas</span><span style={{ ...num, textTransform:'none', letterSpacing:0 }}>{feitas} de {STEPS.length}</span>
+            <span>Etapas</span>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
+              <span style={{ ...num, textTransform:'none', letterSpacing:0 }}>{feitas} de {steps.length}</span>
+              <button type="button" onClick={() => setEditEtapas(v => !v)} className="crm-ghost"
+                title={editEtapas ? 'Terminar a edição das etapas' : 'Adicionar, renomear, remover e reordenar as etapas deste cliente'}
+                style={{ display:'inline-flex', alignItems:'center', gap:5, background:editEtapas ? 'rgba(212,175,55,0.12)' : 'transparent', cursor:'pointer', fontFamily:'inherit',
+                  border:`1px solid ${editEtapas ? 'rgba(212,175,55,0.4)' : T.line}`, borderRadius:5, padding:'2px 8px', fontSize:11, fontWeight:600,
+                  color:editEtapas ? T.gold : T.muted, textTransform:'none', letterSpacing:0 }}>
+                {editEtapas ? <><CheckCircle2 size={11}/> Concluir</> : <><Pencil size={11}/> Editar</>}
+              </button>
+            </span>
           </div>
-          {STEPS.map((s, i) => {
+          {editEtapas ? (
+            <div>
+              <div style={{ fontSize:11, color:T.muted, lineHeight:1.5, padding:'2px 10px 8px' }}>
+                Vale só para esta assessoria. Arraste pelo ícone para reordenar.
+              </div>
+              {steps.map((s, i) => (
+                <div key={s.k} {...dnd.row(i)}
+                  style={{ display:'flex', alignItems:'center', gap:4, padding:'2px 4px 2px 0', borderRadius:6, opacity:dnd.drag === i ? 0.4 : 1,
+                    boxShadow:dnd.drag != null && dnd.over === i && dnd.drag !== i ? `inset 0 ${dnd.drag > i ? '2px' : '-2px'} 0 ${T.gold}` : 'none' }}>
+                  <span {...dnd.handle(i)} title="Arraste para reordenar" aria-label={`Reordenar ${s.short}`}
+                    style={{ cursor:'grab', display:'flex', color:T.faint, padding:'6px 2px 6px 4px' }}><GripVertical size={15}/></span>
+                  <span style={{ ...num, fontSize:12, color:T.faint, width:20, textAlign:'right' }}>{i + 1}.</span>
+                  <input value={cfgDe(s.k).short ?? s.short} onChange={e => renomear(s.k, e.target.value)} onBlur={() => fimRename(s.k)}
+                    aria-label={`Nome da etapa ${i + 1}`} style={{ ...inputS, padding:'5px 8px', fontSize:13, minWidth:0, flex:1 }}/>
+                  <button type="button" onClick={() => remover(s)} title="Remover etapa" aria-label={`Remover ${s.short}`} className="crm-ghost"
+                    style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', display:'flex', padding:6, borderRadius:5 }}><Trash2 size={14}/></button>
+                </div>
+              ))}
+              <div style={{ display:'grid', gap:6, padding:'8px 4px 4px' }}>
+                <Btn small outline onClick={adicionar}><Plus size={13}/> Adicionar etapa</Btn>
+                {removidas.length > 0 && (
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center' }}>
+                    <span style={{ fontSize:11, color:T.faint }}>Reativar:</span>
+                    {removidas.map(b => (
+                      <button key={b.k} type="button" onClick={() => restaurar(b)}
+                        style={{ fontSize:11, padding:'2px 8px', borderRadius:5, cursor:'pointer', fontFamily:'inherit', background:'transparent', color:T.muted, border:`1px solid ${T.line}` }}>
+                        + {b.short}</button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={restaurarPadrao}
+                  style={{ background:'transparent', border:'none', color:T.faint, cursor:'pointer', fontFamily:'inherit', fontSize:11, textAlign:'left', padding:'4px 0', textDecoration:'underline' }}>
+                  Voltar ao modelo padrão
+                </button>
+              </div>
+            </div>
+          ) : steps.map((s, i) => {
             const p = progress(a, s)
             return (
               <StepBtn key={s.k} active={tab === s.k} onClick={() => setTab(s.k)} current={st?.k === s.k}
                 icon={<StatusIcon p={p} current={st?.k === s.k}/>} name={`${i + 1}. ${s.short}`} muted={p.na}
-                sub={p.na ? 'n/a' : s.kind === 'items' ? (p.total ? `${p.done}/${p.total}` : '—') : `${p.done}/${p.total}`}/>
+                sub={p.na ? 'n/a' : s.kind === 'items' ? (p.total ? `${p.done}/${p.total}` : '—') : (p.total ? `${p.done}/${p.total}` : '—')}/>
             )
           })}
         </Card>
 
         {/* Conteúdo da etapa */}
         <div style={{ minWidth:0 }}>
-          {tab === 'geral' ? <Geral a={a} set={set} onChange={onChange} mode={mode}/>
+          {tab === 'geral' || (tab !== 'pax' && tab !== 'fin' && !cur) ? <Geral a={a} set={set} onChange={onChange} mode={mode}/>
             : tab === 'pax' ? (
               <Card>
                 <CardTitle icon={Users}>Passageiros</CardTitle>
@@ -859,7 +1005,7 @@ function Ficha({ a, mode, onChange, onBack, onDelete, saving }) {
                 <Passageiros list={a.passageiros || []} setList={fn => onChange(x => ({ ...x, passageiros: fn(x.passageiros || []) }))}/>
               </Card>)
             : tab === 'fin' ? <Financeiro a={a} onChange={onChange}/>
-            : <StepPanel s={STEP[tab]} a={a} onChange={onChange} mode={mode}/>}
+            : <StepPanel key={cur.k} s={cur} a={a} onChange={onChange} mode={mode}/>}
         </div>
       </div>
       <datalist id="ass-cidades">{cidadesDe(a).map(c => <option key={c} value={c}/>)}</datalist>
@@ -1255,17 +1401,22 @@ const IconDel = ({ onClick }) => (
 function StepPanel({ s, a, onChange, mode }) {
   const p = progress(a, s)
   const na = !!a.na?.[s.k]
+  const [edit, setEdit] = useState(!!s.custom && !s.checks.length) // etapa nova já abre para montar as tarefas
   return (
     <div style={{ display:'grid', gap:14 }}>
       <Card>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, flexWrap:'wrap' }}>
           <div>
-            <div style={{ fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:9 }}>{(() => { const I = STEP_ICON[s.k]; return <I size={17} color={T.muted} strokeWidth={1.8}/> })()} {s.name}</div>
+            <div style={{ fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:9 }}>{(() => { const I = iconOf(s.k); return <I size={17} color={T.muted} strokeWidth={1.8}/> })()} {s.name}</div>
             {s.goal && <div style={{ fontSize:12, color:T.muted, marginTop:4 }}>Objetivo: {s.goal}</div>}
           </div>
-          {na
-            ? <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: false } }))}><RotateCcw size={13}/> Reativar etapa</Btn>
-            : <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: true } }))} title="Some do progresso e do link do cliente"><Ban size={13}/> Não se aplica</Btn>}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <Btn outline small onClick={() => setEdit(v => !v)} title="Mudar nome, descrição e tarefas desta etapa só para este cliente">
+              {edit ? <><CheckCircle2 size={13}/> Concluir edição</> : <><Pencil size={13}/> Editar etapa</>}</Btn>
+            {na
+              ? <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: false } }))}><RotateCcw size={13}/> Reativar etapa</Btn>
+              : <Btn outline small onClick={() => onChange(x => ({ ...x, na:{ ...(x.na || {}), [s.k]: true } }))} title="Some do progresso e do link do cliente"><Ban size={13}/> Não se aplica</Btn>}
+          </div>
         </div>
         {!na && <div style={{ marginTop:12 }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5 }}>
@@ -1275,6 +1426,8 @@ function StepPanel({ s, a, onChange, mode }) {
           <Bar pct={p.pct} color={p.complete ? T.success : T.gold}/>
         </div>}
       </Card>
+
+      {edit && <EditarEtapa s={s} a={a} onChange={onChange}/>}
 
       {na && (
         <Card style={{ textAlign:'center', padding:'28px 18px', borderStyle:'dashed' }}>
@@ -1348,17 +1501,81 @@ function DiaADia({ a, onChange }) {
 
 function Checklist({ s, a, onChange }) {
   const checks = a.checks?.[s.k] || {}
-  const toggle = c => onChange(x => ({ ...x, checks:{ ...(x.checks || {}), [s.k]:{ ...(x.checks?.[s.k] || {}), [c]: !x.checks?.[s.k]?.[c] } } }))
+  const toggle = id => onChange(x => ({ ...x, checks:{ ...(x.checks || {}), [s.k]:{ ...(x.checks?.[s.k] || {}), [id]: !x.checks?.[s.k]?.[id] } } }))
   return (
     <Card>
+      {s.checks.length === 0 && <div style={{ fontSize:13, color:T.muted }}>Esta etapa ainda não tem tarefas. Use “Editar etapa” para adicionar.</div>}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:6 }}>
         {s.checks.map(c => (
-          <label key={c} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer',
-            background:checks[c] ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)', border:`1px solid ${checks[c] ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.06)'}` }}>
-            <input type="checkbox" checked={!!checks[c]} onChange={() => toggle(c)} style={{ accentColor:T.success, width:15, height:15 }}/>
-            <span style={{ fontSize:13, color:checks[c] ? T.text : T.muted, textDecoration:checks[c] ? 'none' : 'none' }}>{c}</span>
+          <label key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer',
+            background:checks[c.id] ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)', border:`1px solid ${checks[c.id] ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.06)'}` }}>
+            <input type="checkbox" checked={!!checks[c.id]} onChange={() => toggle(c.id)} style={{ accentColor:T.success, width:15, height:15 }}/>
+            <span style={{ fontSize:13, color:checks[c.id] ? T.text : T.muted }}>{c.t}</span>
           </label>
         ))}
+      </div>
+    </Card>
+  )
+}
+
+/* Edita a etapa só deste cliente: nome, descrição e (nas etapas de checklist) as tarefas */
+function EditarEtapa({ s, a, onChange }) {
+  const cfg = (Array.isArray(a.etapas) ? a.etapas : DEFAULT_ETAPAS).find(c => c.k === s.k) || {}
+  const setCfg = fn => onChange(x => ({ ...x, etapas:(Array.isArray(x.etapas) ? x.etapas : defaultEtapas()).map(c => c.k === s.k ? fn(c) : c) }))
+  const tasks = s.checks || []
+  const setTasks = fn => setCfg(c => ({ ...c, tasks: fn(c.tasks || tasks) }))
+  const dnd = useReorder((de, para) => setTasks(l => { const c = [...l]; const [m] = c.splice(de, 1); c.splice(para, 0, m); return c }))
+  const [novo, setNovo] = useState('')
+  const addTask = () => {
+    const t = novo.trim()
+    if (!t) return
+    setTasks(l => [...l, { id:uid(), t }]); setNovo('')
+  }
+  return (
+    <Card style={{ border:`1px solid rgba(212,175,55,0.3)` }}>
+      <CardTitle icon={Pencil} right={<span style={{ fontSize:11, color:T.faint }}>vale só para este cliente</span>}>Editar etapa</CardTitle>
+      <div style={{ display:'grid', gap:10 }}>
+        <div>
+          <Label>Nome da etapa</Label>
+          <input value={cfg.short ?? s.short} placeholder="Ex.: Passeio" style={inputS}
+            onChange={e => setCfg(c => ({ ...c, short:e.target.value }))}
+            onBlur={() => { if (!String(cfg.short ?? 'x').trim()) setCfg(c => { const { short, ...r } = c; return r }) }}/>
+        </div>
+        <div>
+          <Label>Descrição (objetivo da etapa)</Label>
+          <textarea value={cfg.goal ?? s.goal ?? ''} rows={2} placeholder="O que precisa acontecer nesta etapa"
+            onChange={e => setCfg(c => ({ ...c, goal:e.target.value }))} style={{ ...inputS, resize:'vertical' }}/>
+        </div>
+        {s.kind === 'check' ? (
+          <div>
+            <Label>Tarefas · arraste pelo ícone para reordenar</Label>
+            <div style={{ display:'grid', gap:4 }}>
+              {tasks.map((c, i) => (
+                <div key={c.id} {...dnd.row(i)}
+                  style={{ display:'flex', alignItems:'center', gap:6, borderRadius:6, opacity:dnd.drag === i ? 0.4 : 1,
+                    boxShadow:dnd.drag != null && dnd.over === i && dnd.drag !== i ? `inset 0 ${dnd.drag > i ? '2px' : '-2px'} 0 ${T.gold}` : 'none' }}>
+                  <span {...dnd.handle(i)} title="Arraste para reordenar" aria-label={`Reordenar tarefa ${i + 1}`}
+                    style={{ cursor:'grab', display:'flex', color:T.faint, padding:'6px 2px' }}><GripVertical size={15}/></span>
+                  <input value={c.t} aria-label={`Tarefa ${i + 1}`} style={{ ...inputS, flex:1, minWidth:0 }}
+                    onChange={e => { const v = e.target.value; setTasks(l => l.map(x => x.id === c.id ? { ...x, t:v } : x)) }}
+                    onBlur={() => { if (!c.t.trim()) setTasks(l => l.filter(x => x.id !== c.id)) }}/>
+                  <button type="button" onClick={() => setTasks(l => l.filter(x => x.id !== c.id))} title="Remover tarefa" aria-label={`Remover tarefa ${c.t}`}
+                    style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', display:'flex', padding:6 }}><Trash2 size={14}/></button>
+                </div>
+              ))}
+              {tasks.length === 0 && <div style={{ fontSize:12, color:T.muted }}>Nenhuma tarefa ainda — escreva a primeira abaixo.</div>}
+              <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                <input value={novo} onChange={e => setNovo(e.target.value)} placeholder="Nova tarefa — Enter para adicionar" aria-label="Nova tarefa"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask() } }} style={{ ...inputS, flex:1, minWidth:0 }}/>
+                <Btn small outline onClick={addTask} disabled={!novo.trim()}><Plus size={13}/> Tarefa</Btn>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize:12, color:T.muted }}>
+            O andamento desta etapa vem dos itens lançados abaixo (voos, hotéis, etc.): cada item tem o próprio status. Para mais itens, use o botão “Adicionar” da etapa.
+          </div>
+        )}
       </div>
     </Card>
   )

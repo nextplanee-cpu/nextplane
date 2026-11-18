@@ -63,7 +63,7 @@ const item = it => ({
 
 /* Ids dos anexos que o cliente pode baixar (só os que estão no retrato do link) */
 export const anexoDoPortal = (view, fileId) => {
-  for (const e of arr(view?.etapas, 20)) for (const it of arr(e.itens, 60)) {
+  for (const e of arr(view?.etapas, 40)) for (const it of arr(e.itens, 60)) {
     const hit = arr(it.anexos, 10).find(x => x?.id === fileId)
     if (hit) return { nome: str(hit.nome, 120) || 'anexo', tipo: str(hit.tipo, 40) }
   }
@@ -80,7 +80,7 @@ export function publicView(view = {}, { status, responsavel } = {}) {
     viajantes:   Number(view.viajantes) || null,
     responsavel: str(responsavel, 60),
     status:      ['concluida'].includes(status) ? 'concluida' : 'andamento',
-    etapas: (Array.isArray(view.etapas) ? view.etapas : []).slice(0, 20).map(e => ({
+    etapas: (Array.isArray(view.etapas) ? view.etapas : []).slice(0, 40).map(e => ({
       k:      str(e.k, 30),
       nome:   str(e.nome, 60),
       icon:   str(e.icon, 8),

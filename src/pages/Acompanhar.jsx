@@ -8,14 +8,14 @@ import { useParams } from 'react-router-dom'
 import {
   Plane, Calendar, MapPin, Users, ChevronDown, Check, FileText, Image as ImageIcon, Download, Eye,
   ExternalLink, MessageCircle, Handshake, Compass, TrainFront, Car, BedDouble, ShieldCheck, Ticket,
-  Wifi, CalendarDays, ArrowRight, Clock, Lock, FolderOpen, PiggyBank,
+  Wifi, CalendarDays, ArrowRight, Clock, Lock, FolderOpen, PiggyBank, TreePalm,
 } from 'lucide-react'
 import { T, num, GlobalStyle, Card, Bar } from './crm/ui'
 import { PHONE } from '../lib/whatsapp'
 
 const ICON = {
   onboarding:Handshake, rota:Compass, aereo:Plane, trem:TrainFront, aluguel:Car, hotel:BedDouble,
-  seguro:ShieldCheck, exp:Ticket, internet:Wifi, roteiro:CalendarDays, previagem:Users,
+  seguro:ShieldCheck, exp:Ticket, passeio:TreePalm, internet:Wifi, roteiro:CalendarDays, previagem:Users,
 }
 const iconOf = k => ICON[k] || Check
 
